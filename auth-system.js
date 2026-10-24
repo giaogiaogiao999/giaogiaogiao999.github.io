@@ -18,7 +18,7 @@
     noInquiry: '暂无询价记录。', noFavorite: '暂无收藏产品。', user: '普通用户', admin: '管理员', active: '正常', disabledLabel: '已停用',
     pending: '待处理', processing: '处理中', completed: '已完成', enable: '启用', disable: '停用', edit: '编辑', remove: '删除',
     productSaved: '产品已保存。', productRemoved: '产品已删除。', favoriteRemoved: '已取消收藏。', userUpdated: '用户状态已更新。', inquiryUpdated: '询价状态已更新。',
-    confirmDelete: '确定删除这个自定义产品吗？'
+    confirmDelete: '确定删除这个自定义产品吗？', invalidQq: '请输入5至12位数字QQ号。'
   } : {
     loginFailed: 'Incorrect email address or password.', disabled: 'This account has been disabled.',
     exists: 'An account already exists for this email.', mismatch: 'The passwords do not match.',
@@ -27,7 +27,7 @@
     noInquiry: 'No inquiries yet.', noFavorite: 'No saved products yet.', user: 'User', admin: 'Administrator', active: 'Active', disabledLabel: 'Disabled',
     pending: 'Pending', processing: 'Processing', completed: 'Completed', enable: 'Enable', disable: 'Disable', edit: 'Edit', remove: 'Delete',
     productSaved: 'Product saved.', productRemoved: 'Product deleted.', favoriteRemoved: 'Favorite removed.', userUpdated: 'User status updated.', inquiryUpdated: 'Inquiry status updated.',
-    confirmDelete: 'Delete this custom product?'
+    confirmDelete: 'Delete this custom product?', invalidQq: 'Enter a valid QQ number containing 5 to 12 digits.'
   };
 
   const read = (key, fallback) => {
@@ -119,7 +119,11 @@
 
   async function handleRegistration(form) {
     const data = new FormData(form);
-    const email = normalizeEmail(data.get('email'));
+    const method = form.dataset.registerMethod || 'email';
+    const rawEmail = normalizeEmail(data.get('email'));
+    const qqNumber = rawEmail.replace(/@qq\.com$/, '');
+    if (method === 'qq' && !/^[1-9]\d{4,11}$/.test(qqNumber)) return setNotice(copy.invalidQq, 'error');
+    const email = method === 'qq' ? `${qqNumber}@qq.com` : rawEmail;
     const password = String(data.get('password') || '');
     if (password.length < 8) return setNotice(copy.weak, 'error');
     if (password !== String(data.get('confirmPassword') || '')) return setNotice(copy.mismatch, 'error');
@@ -128,7 +132,7 @@
     const user = {
       id: makeId('user'), name: String(data.get('name') || '').trim(), email,
       phone: String(data.get('phone') || '').trim(), company: String(data.get('company') || '').trim(),
-      passwordHash: await hashPassword(password), role: 'user', status: 'active', createdAt: new Date().toISOString()
+      passwordHash: await hashPassword(password), registrationMethod: method, role: 'user', status: 'active', createdAt: new Date().toISOString()
     };
     allUsers.push(user);
     write(USERS_KEY, allUsers);
@@ -324,10 +328,32 @@
       event.preventDefault();
       handleLogin(event.currentTarget);
     });
-    document.querySelector('[data-register-form]')?.addEventListener('submit', (event) => {
-      event.preventDefault();
-      handleRegistration(event.currentTarget);
-    });
+    const registerForm = document.querySelector('[data-register-form]');
+    if (registerForm) {
+      const emailInput = registerForm.querySelector('[data-register-email]');
+      const emailLabel = registerForm.querySelector('[data-email-label]');
+      const setRegistrationMethod = (method) => {
+        const isQq = method === 'qq';
+        registerForm.dataset.registerMethod = method;
+        registerForm.querySelectorAll('[data-register-method]').forEach((button) => button.classList.toggle('is-active', button.dataset.registerMethod === method));
+        emailLabel.textContent = isQq ? emailLabel.dataset.emailLabelQq : emailLabel.dataset.emailLabelDefault;
+        emailInput.value = '';
+        emailInput.type = isQq ? 'text' : 'email';
+        emailInput.inputMode = isQq ? 'numeric' : 'email';
+        emailInput.autocomplete = isQq ? 'off' : 'email';
+        emailInput.placeholder = isQq ? emailInput.dataset.qqPlaceholder : emailInput.dataset.emailPlaceholder;
+        emailInput.pattern = isQq ? '[1-9][0-9]{4,11}' : '';
+        emailInput.setAttribute('aria-describedby', isQq ? 'qq-email-help' : '');
+        registerForm.classList.toggle('is-qq-registration', isQq);
+        emailInput.focus();
+      };
+      registerForm.querySelectorAll('[data-register-method]').forEach((button) => button.addEventListener('click', () => setRegistrationMethod(button.dataset.registerMethod)));
+      registerForm.querySelector('[data-qq-help]')?.setAttribute('id', 'qq-email-help');
+      registerForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        handleRegistration(event.currentTarget);
+      });
+    }
     if (page === 'account') {
       const user = requireUser();
       if (user) renderAccount(user);

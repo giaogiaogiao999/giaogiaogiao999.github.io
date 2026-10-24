@@ -36,6 +36,9 @@ button, input, select { font: inherit; }
 .auth-card h2 { margin: 0 0 10px; color: var(--auth-deep); font-size: 36px; }
 .auth-lead { margin: 0 0 30px; color: var(--auth-muted); line-height: 1.65; }
 .auth-form { display: grid; gap: 18px; }
+.auth-method-toggle { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border: 1px solid var(--auth-line); border-radius: 4px; background: #f3f7fa; }
+.auth-method-toggle button { min-height: 42px; padding: 8px 12px; border: 0; border-radius: 3px; color: #53697a; background: transparent; font-weight: 700; cursor: pointer; }
+.auth-method-toggle button.is-active { color: #fff; background: var(--auth-blue); box-shadow: 0 4px 12px rgba(7,150,210,.2); }
 .auth-fields-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .auth-field { display: grid; gap: 7px; }
 .auth-field label { color: #334659; font-size: 14px; font-weight: 700; }
@@ -45,6 +48,12 @@ button, input, select { font: inherit; }
 }
 .auth-field input:focus,
 .auth-field select:focus { border-color: var(--auth-blue); outline: 3px solid rgba(7,150,210,.14); }
+.auth-email-control { position: relative; }
+.auth-email-control [data-qq-suffix] { display: none; position: absolute; top: 50%; right: 14px; color: #53697a; transform: translateY(-50%); pointer-events: none; }
+.is-qq-registration .auth-email-control input { padding-right: 76px; }
+.is-qq-registration .auth-email-control [data-qq-suffix] { display: block; }
+.auth-field-help { display: none; color: var(--auth-muted); font-size: 12px; line-height: 1.45; }
+.is-qq-registration [data-qq-help] { display: block; }
 .auth-check { display: flex; align-items: flex-start; gap: 10px; color: var(--auth-muted); font-size: 13px; line-height: 1.5; }
 .auth-check input { margin-top: 3px; }
 .auth-submit { height: 52px; border: 0; border-radius: 2px; color: #fff; background: var(--auth-blue); font-weight: 800; cursor: pointer; }
