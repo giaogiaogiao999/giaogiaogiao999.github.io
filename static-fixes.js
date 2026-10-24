@@ -7,14 +7,22 @@
   const copy = isZh ? {
     added: '已加入询价清单', removed: '已移除', empty: '询价清单为空',
     sent: '即将打开邮件应用，请发送邮件完成询价。', searchEmpty: '没有找到匹配的产品。',
-    emailSubject: '网站产品询价', requiredEmail: '请输入有效的邮箱地址。'
+    emailSubject: '网站产品询价', requiredEmail: '请输入有效的邮箱地址。',
+    favoriteAdded: '已收藏产品', favoriteRemoved: '已取消收藏', loginFavorite: '登录后可以收藏产品',
+    addQuote: '加入询价', rating: '暂无评分'
   } : {
     added: 'Added to quote list', removed: 'Removed', empty: 'Your quote basket is empty.',
     sent: 'Your email app will open. Send the prepared message to complete the inquiry.', searchEmpty: 'No matching products found.',
-    emailSubject: 'Website product inquiry', requiredEmail: 'Please enter a valid email address.'
+    emailSubject: 'Website product inquiry', requiredEmail: 'Please enter a valid email address.',
+    favoriteAdded: 'Product saved to favorites', favoriteRemoved: 'Removed from favorites', loginFavorite: 'Sign in to save favorites',
+    addQuote: 'Add to Quote', rating: 'Rated 0 out of 5'
   };
 
   const QUOTE_KEY = 'lumosy_static_quote_v1';
+  const SESSION_KEY = 'lumosy_auth_session_v1';
+  const FAVORITES_KEY = 'lumosy_favorites_v1';
+  const INQUIRIES_KEY = 'lumosy_inquiries_v1';
+  const PRODUCTS_KEY = 'lumosy_products_v1';
   const zhText = new Map(Object.entries({
     'HOME': '首页', 'PRODUCTS': '产品', 'ABOUT': '关于我们', 'BLOG': '博客', 'FAQ': '常见问题', 'CONTACT US': '联系我们',
     'Home': '首页', 'Products': '产品', 'About': '关于我们', 'Blog': '博客', 'Contact Us': '联系我们', 'Request a Quote': '获取报价',
@@ -297,6 +305,28 @@
     }
   });
 
+  function setupAccountEntry() {
+    let session = null;
+    try { session = JSON.parse(localStorage.getItem('lumosy_auth_session_v1') || 'null'); } catch {}
+    const destination = session?.role === 'admin'
+      ? (isZh ? '/zh/admin/' : '/admin/')
+      : session
+        ? (isZh ? '/zh/account/' : '/account/')
+        : (isZh ? '/zh/login/' : '/login/');
+    const label = session?.role === 'admin'
+      ? (isZh ? '管理后台' : 'ADMIN')
+      : session
+        ? (isZh ? '用户中心' : 'ACCOUNT')
+        : (isZh ? '登录 / 注册' : 'LOGIN / REGISTER');
+    document.querySelectorAll('#menu-primary-menu,#menu-primary-menu-1').forEach((menu) => {
+      if (menu.querySelector('.static-account-menu')) return;
+      const item = document.createElement('li');
+      item.className = 'menu-item static-account-menu';
+      item.innerHTML = `<a href="${destination}">${label}</a>`;
+      menu.insertBefore(item, menu.lastElementChild);
+    });
+  }
+
   function productFromControl(control) {
     const card = control.closest('.reference-store-card,.cxb-b2b-product-card,article');
     const title = (card?.querySelector('h2,h3')?.textContent || document.querySelector('h1')?.textContent || document.title).trim();
@@ -365,6 +395,23 @@
       lines.push('', isZh ? '询价产品：' : 'Products:');
       for (const item of items) lines.push(`- ${item.title} × ${Number(item.qty) || 1}`);
     }
+    const session = readStore(SESSION_KEY, null);
+    const fields = {};
+    for (const [key, value] of data.entries()) {
+      if (!(value instanceof File) && String(value).trim() && !key.includes('nonce') && !key.startsWith('_')) fields[key] = String(value).trim();
+    }
+    const inquiries = readStore(INQUIRIES_KEY, []);
+    inquiries.unshift({
+      id: `INQ-${Date.now().toString().slice(-8)}`,
+      userId: session?.userId || null,
+      customer: session?.name || fields.name || fields.your_name || fields.full_name || 'Guest',
+      email: session?.email || fields.email || fields.your_email || '',
+      fields,
+      items: items.map((item) => ({ ...item })),
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    });
+    saveStore(INQUIRIES_KEY, inquiries);
     toast(copy.sent);
     const href = `mailto:edgetrim123@gmail.com?subject=${encodeURIComponent(copy.emailSubject)}&body=${encodeURIComponent(lines.join('\n'))}`;
     setTimeout(() => { location.href = href; }, 150);
@@ -401,6 +448,73 @@
     }
     empty.textContent = matches.length ? '' : copy.searchEmpty;
     document.querySelector('.reference-store-pagination')?.toggleAttribute('hidden', true);
+    await applyManagedProducts();
+    setupFavorites();
+  }
+
+  const readStore = (key, fallback) => {
+    try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); } catch { return fallback; }
+  };
+  const saveStore = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+
+  async function ensureManagedProducts() {
+    const existing = readStore(PRODUCTS_KEY, null);
+    if (Array.isArray(existing) && existing.length) return existing;
+    try {
+      const response = await fetch('/auth-products.json', { cache: 'no-store' });
+      if (!response.ok) return [];
+      const products = await response.json();
+      saveStore(PRODUCTS_KEY, products);
+      return products;
+    } catch { return []; }
+  }
+
+  async function applyManagedProducts() {
+    const grid = document.querySelector('.reference-store-grid');
+    if (!grid) return;
+    const products = await ensureManagedProducts();
+    const known = new Set();
+    grid.querySelectorAll('.reference-store-card').forEach((card) => {
+      const link = card.querySelector('h2 a,h3 a,.reference-store-card__image');
+      const pathname = link ? new URL(link.getAttribute('href'), location.origin).pathname : '';
+      const product = products.find((item) => item.url === pathname || item.url === pathname.replace(/^\/zh/, ''));
+      if (!product) return;
+      known.add(product.id);
+      card.hidden = product.status === 'inactive';
+      card.dataset.managedProductId = product.id;
+      card.querySelectorAll('h2 a,h3 a').forEach((el) => { el.textContent = isZh && product.titleZh ? product.titleZh : product.title; });
+      const category = card.querySelector('h2 + p,h3 + p');
+      if (category) category.textContent = isZh && product.categoryZh ? product.categoryZh : product.category;
+      const image = card.querySelector('img');
+      if (image && product.image) { image.src = product.image; image.removeAttribute('srcset'); }
+    });
+    products.filter((product) => product.source === 'custom' && product.status !== 'inactive' && !known.has(product.id)).forEach((product) => {
+      const title = isZh && product.titleZh ? product.titleZh : product.title;
+      const category = isZh && product.categoryZh ? product.categoryZh : product.category;
+      const card = document.createElement('article');
+      card.className = 'reference-store-card';
+      card.dataset.managedProductId = product.id;
+      card.innerHTML = `<a class="reference-store-card__image" href="${product.url}"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></a><h2><a href="${product.url}">${title}</a></h2><p>${category}</p><span>${copy.rating}</span><a class="reference-store-card__button" href="${product.url}#inquiry">${copy.addQuote}</a>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function setupFavorites() {
+    document.querySelectorAll('.reference-store-card,.reference-product-card').forEach((card) => {
+      if (card.querySelector('.static-favorite-button')) return;
+      const control = document.createElement('button');
+      control.type = 'button';
+      control.className = 'static-favorite-button';
+      control.setAttribute('aria-label', isZh ? '收藏产品' : 'Save product');
+      control.textContent = '♡';
+      const product = productFromControl(card.querySelector('.reference-store-card__button,.cxb-b2b-add-to-quote-button') || card);
+      control.dataset.favoriteId = String(product.id);
+      const session = readStore(SESSION_KEY, null);
+      const saved = readStore(FAVORITES_KEY, []).some((item) => item.userId === session?.userId && String(item.product.id) === String(product.id));
+      control.classList.toggle('is-saved', saved);
+      control.textContent = saved ? '♥' : '♡';
+      (card.querySelector('.reference-store-card__image,.reference-product-card__image') || card).appendChild(control);
+    });
   }
 
   const searchForm = document.querySelector('.reference-store-search');
@@ -425,6 +539,34 @@
   });
 
   document.addEventListener('click', (event) => {
+    const favorite = event.target.closest('.static-favorite-button');
+    if (favorite) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const session = readStore(SESSION_KEY, null);
+      if (!session) {
+        toast(copy.loginFavorite);
+        setTimeout(() => { location.href = `${isZh ? '/zh' : ''}/login/?next=${encodeURIComponent(location.pathname)}`; }, 450);
+        return;
+      }
+      const card = favorite.closest('.reference-store-card,.reference-product-card,article');
+      const product = productFromControl(card.querySelector('.reference-store-card__button,.cxb-b2b-add-to-quote-button') || card);
+      const favorites = readStore(FAVORITES_KEY, []);
+      const index = favorites.findIndex((item) => item.userId === session.userId && String(item.product.id) === String(product.id));
+      if (index >= 0) {
+        favorites.splice(index, 1);
+        favorite.classList.remove('is-saved');
+        favorite.textContent = '♡';
+        toast(copy.favoriteRemoved);
+      } else {
+        favorites.push({ userId: session.userId, product, createdAt: new Date().toISOString() });
+        favorite.classList.add('is-saved');
+        favorite.textContent = '♥';
+        toast(copy.favoriteAdded);
+      }
+      saveStore(FAVORITES_KEY, favorites);
+      return;
+    }
     const add = event.target.closest('.reference-store-card__button,.cxb-b2b-add-to-quote-button,.cxb-b2b-mh-quote-icon');
     if (add) {
       event.preventDefault();
@@ -471,6 +613,8 @@
 
   updateQuoteBadges();
   renderQuotePage();
+  setupAccountEntry();
+  applyManagedProducts().then(setupFavorites);
   translateChinese();
   repairEmptyCategoryImage();
   setupSectionAnchors();

@@ -23,6 +23,33 @@
 .static-quote-row img { width: 64px; height: 64px; object-fit: cover; }
 .static-quote-row input { width: 72px; padding: 8px; }
 .static-quote-remove { border: 0; background: transparent; color: #d92d20; font-size: 26px; cursor: pointer; }
+.static-account-menu > a {
+  white-space: nowrap;
+  color: #0796d2 !important;
+  font-weight: 700 !important;
+}
+.site-navigation-dropdown .static-account-menu > a { color: inherit !important; }
+.reference-store-card__image,
+.reference-product-card__image { position: relative; }
+.static-favorite-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 4;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(20,48,71,.14);
+  border-radius: 50%;
+  color: #23445b;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 5px 18px rgba(15,39,55,.14);
+  font-size: 24px;
+  line-height: 40px;
+  cursor: pointer;
+}
+.static-favorite-button:hover,
+.static-favorite-button.is-saved { color: #d92f62; transform: scale(1.06); }
 video:not([src]) { pointer-events: none; }
 .reference-about__media .static-video-poster,
 .reference-about-products__media .static-video-poster {
