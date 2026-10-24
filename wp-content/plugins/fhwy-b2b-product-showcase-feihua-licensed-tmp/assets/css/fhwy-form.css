@@ -1,0 +1,626 @@
+/**
+ * 菲华伟业 Form — Frontend styles
+ *
+ * ---------------------------------------------------------------------------
+ * 2.1.86 — the field row is a CSS Grid, not a flex line
+ * ---------------------------------------------------------------------------
+ *
+ * The old layout gave every field an inline `width: calc(N% - Xpx)` where X
+ * was computed in PHP from a hard-coded 16px gap. Two numbers, one meaning:
+ * change the `gap` here and the widths in PHP no longer added up, so the
+ * second column wrapped and the form silently became one column. That is why
+ * "the gap setting stopped working" and "only one column" were the same bug.
+ *
+ * A 12-track grid ends the coupling. `grid-column: span 6` is resolved AFTER
+ * the gutters are removed from the available width, so column-gap and row-gap
+ * are free to be anything and two spans of 6 still make one row.
+ *
+ * The span comes from two custom properties:
+ *   --cxb-w          per field, set inline when the field has a fixed Width
+ *   --cxb-auto-span  per form, written by the Columns control via Elementor
+ *
+ * A field with no --cxb-w falls through to --cxb-auto-span, which is what the
+ * "Auto (follow Columns)" width option means. The 6 at the end of the var()
+ * chain is the two-column default, and it is what keeps a form rendering
+ * correctly even if Elementor's generated CSS file is missing (a fresh save,
+ * a cache purge mid-request, CSS print method set to inline in a cached page).
+ *
+ * @since 4.3.0
+ * @package Fhwy_B2B_Product_Showcase
+ */
+
+/* ================================================================
+   Layout
+================================================================ */
+.cxb-form-wrap {
+    box-sizing: border-box;
+}
+.cxb-form-wrap *, .cxb-form-wrap *::before, .cxb-form-wrap *::after {
+    box-sizing: inherit;
+}
+
+.cxb-form-fields {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 16px;
+    row-gap: 20px;
+    /* Fields on the same row keep their tops aligned even when one of them
+       carries help text and its neighbour does not. */
+    align-items: start;
+}
+
+.cxb-form-field {
+    grid-column: span var(--cxb-w, var(--cxb-auto-span, 6));
+    display: flex;
+    flex-direction: column;
+    /* Without this a long unbroken string in an input can push the track
+       wider than its 1fr share and shove the next column off the row. */
+    min-width: 0;
+}
+
+/*
+ * Fallback for the no-Elementor case (the [cxb_form] shortcode) and for any
+ * page where the generated stylesheet has not loaded yet. Hard-coded 767px
+ * rather than an Elementor breakpoint because there is no Elementor here.
+ */
+@media (max-width: 767px) {
+    .cxb-form-fields--stack-mobile .cxb-form-field {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ================================================================
+   Field wrapper
+================================================================ */
+.cxb-form-label {
+    display: block;
+    margin-bottom: var(--cxb-label-gap, 6px);
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    line-height: 1.4;
+}
+
+.cxb-form-control {
+    /* The control sits in its own box so the label can be moved beside it
+       without the inputs inheriting flex behaviour they were not written for. */
+    min-width: 0;
+}
+
+.cxb-form-required {
+    color: #e53935;
+    font-weight: 700;
+}
+
+.cxb-form-help {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #888;
+}
+
+.cxb-form-heading {
+    margin: 0 0 8px;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1a1a1a;
+}
+
+.cxb-form-desc {
+    margin: 0 0 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #666;
+}
+
+/* ---- Label beside the input ---- */
+.cxb-form-wrap--label-inline .cxb-form-field {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cxb-form-wrap--label-inline .cxb-form-label {
+    flex: 0 0 auto;
+    width: 30%;
+    max-width: 180px;
+    margin-bottom: 0;
+}
+
+.cxb-form-wrap--label-inline .cxb-form-control {
+    flex: 1 1 0;
+}
+
+.cxb-form-wrap--label-inline .cxb-form-help {
+    flex: 1 1 100%;
+}
+
+@media (max-width: 767px) {
+    .cxb-form-wrap--label-inline .cxb-form-field {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+    }
+    .cxb-form-wrap--label-inline .cxb-form-label {
+        width: auto;
+        max-width: none;
+        margin-bottom: var(--cxb-label-gap, 6px);
+    }
+}
+
+/*
+ * Hidden label. Not display:none — a screen reader has to keep reading it, and
+ * the `for` relationship is the only thing naming the input.
+ */
+.cxb-form-wrap--label-hidden .cxb-form-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ================================================================
+   Inputs
+================================================================ */
+.cxb-form-input,
+.cxb-form-textarea,
+.cxb-form-select {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+    color: #333;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+.cxb-form-input:focus,
+.cxb-form-textarea:focus,
+.cxb-form-select:focus {
+    border-color: #0A7AFF;
+    box-shadow: 0 0 0 2px rgba(10, 122, 255, 0.15);
+}
+
+.cxb-form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.cxb-form-select {
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 36px;
+}
+
+/* Date inputs render taller than text inputs in Safari unless told otherwise. */
+.cxb-form-input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 0;
+}
+
+/* ================================================================
+   Checkbox / radio group
+================================================================ */
+.cxb-form-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 20px;
+    padding-top: 4px;
+}
+
+.cxb-form-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1.4;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.cxb-form-checkbox-label input[type="checkbox"],
+.cxb-form-checkbox-label input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.cxb-form-checkbox-label span {
+    line-height: 1;
+}
+
+/* ================================================================
+   Acceptance (single tick-box with its label to the right)
+================================================================ */
+.cxb-form-acceptance {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+    cursor: pointer;
+    margin: 0;
+}
+
+.cxb-form-acceptance input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin: 3px 0 0 0;
+    cursor: pointer;
+}
+
+/* ================================================================
+   Honeypot
+   Positioned off-screen rather than display:none, so a bot that skips
+   invisible inputs still sees a normal-looking text field.
+================================================================ */
+.cxb-form-hp {
+    position: absolute !important;
+    left: -9999px !important;
+    top: auto !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+}
+
+/* ================================================================
+   File upload zone
+================================================================ */
+.cxb-form-file-zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    padding: 20px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .2s, background-color .2s;
+    text-align: center;
+}
+
+.cxb-form-file-zone:hover,
+.cxb-form-file-zone:focus-visible,
+.cxb-form-file-zone--dragover {
+    border-color: #0A7AFF;
+    background-color: rgba(10, 122, 255, 0.04);
+}
+
+.cxb-form-file-input {
+    /* Visually hidden but still functional when triggered by JS */
+    position: absolute;
+    top: 0; left: 0;
+    width: 1px; height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    pointer-events: none;
+}
+
+.cxb-form-file-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: #888;
+}
+
+.cxb-form-file-placeholder svg {
+    color: #aaa;
+}
+
+.cxb-form-file-placeholder span {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.cxb-form-file-placeholder small {
+    font-size: 12px;
+    color: #aaa;
+}
+
+.cxb-form-file-selected {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f0f7ff;
+    border-radius: 6px;
+    width: 100%;
+}
+
+.cxb-form-file-name {
+    flex: 1;
+    font-size: 14px;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cxb-form-file-remove {
+    background: none;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    color: #999;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color .2s;
+}
+
+.cxb-form-file-remove:hover {
+    color: #e53935;
+}
+
+/* ================================================================
+   File upload progress bar
+================================================================ */
+.cxb-form-file-progress {
+    width: 100%;
+    margin-top: 10px;
+    position: relative;
+}
+
+.cxb-form-file-progress-bar {
+    height: 6px;
+    width: 0;
+    background-color: #0A7AFF;
+    border-radius: 3px;
+    transition: width .25s ease;
+}
+
+.cxb-form-file-progress--success .cxb-form-file-progress-bar {
+    background-color: #2e7d32;
+}
+
+.cxb-form-file-progress-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+}
+
+/* ================================================================
+   CAPTCHA
+================================================================ */
+.cxb-form-captcha {
+    margin: 14px 0 0;
+}
+
+.cxb-form-recaptcha-branding {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #888;
+}
+
+.cxb-form-recaptcha-branding a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+/* ================================================================
+   Privacy Policy notice
+   Shared class used by both this widget and the global helper
+   Fhwy_B2B_Product_Showcase::render_privacy_policy_notice().
+================================================================ */
+.cxb-b2b-privacy-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px 0;
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #555;
+    background: #f7f8fa;
+    border: 1px solid #eceff3;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* No tick-box to click, so no pointer cursor implying there is one. */
+.cxb-b2b-privacy-notice--plain {
+    cursor: default;
+}
+
+.cxb-b2b-privacy-notice__checkbox {
+    flex: 0 0 auto;
+    margin: 3px 0 0 0;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.cxb-b2b-privacy-notice__text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.cxb-b2b-privacy-notice__text a {
+    color: #0A7AFF;
+    text-decoration: underline;
+}
+
+.cxb-b2b-privacy-notice__text a:hover {
+    text-decoration: none;
+}
+
+.cxb-b2b-privacy-notice--error {
+    border-color: #e53935;
+    background: #fff5f5;
+}
+
+/* ================================================================
+   Submit button
+================================================================ */
+/* A flex line rather than a plain block.
+
+   As a flex item the button carries the default flex-shrink of 1, so
+   anything that would push it past the form — a theme's min-width on
+   buttons, a margin, padding measured content-box — is absorbed by the
+   button giving way instead of by the row overflowing. A block child with
+   width:100% has no such give. */
+.cxb-form-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-top: 20px;
+}
+
+.cxb-form-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 1 auto;
+    padding: 14px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    color: #fff;
+    background-color: #0A7AFF;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color .2s, opacity .2s;
+    line-height: 1.4;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Never wider than the form, whatever the theme has to say about buttons.
+
+   The class is doubled so the selector is (0,3,0): a theme's own
+   `button { width: 100% !important }` or `input[type=submit] { min-width: … }`
+   is (0,0,1) or (0,0,2), and between two !important author declarations the
+   more specific one wins.
+
+   Only the box model is pinned. Padding, colours and radius are left alone
+   because those belong to the widget's Elementor style controls, whose
+   generated rules are (0,2,0) and have to keep winning — pinning them here
+   would quietly disable half the Style tab. */
+.cxb-form-wrap .cxb-form-submit.cxb-form-submit {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    /* A label a theme has set to nowrap would spill past max-width instead of
+       wrapping inside it, which is a clamp in name only. */
+    white-space: normal !important;
+}
+
+.cxb-form-submit:hover {
+    background-color: #005cbf;
+}
+
+.cxb-form-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ================================================================
+   Messages
+================================================================ */
+.cxb-form-message {
+    margin-top: 16px;
+    padding: 14px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Above-the-fields placement needs the gap under it, not over it. */
+.cxb-form-message:first-child {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+.cxb-form-message--success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.cxb-form-message--error {
+    background: #fce4ec;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+}
+
+/* ================================================================
+   Error state for fields
+================================================================ */
+.cxb-form-field--error .cxb-form-input,
+.cxb-form-field--error .cxb-form-textarea,
+.cxb-form-field--error .cxb-form-select {
+    border-color: #e53935;
+    box-shadow: 0 0 0 2px rgba(229, 57, 53, 0.15);
+}
+
+.cxb-form-field--error .cxb-form-file-zone,
+.cxb-form-field--error .cxb-form-checkbox-group {
+    border-color: #e53935;
+}
+
+/* ================================================================
+   Editor-only affordances
+================================================================ */
+.cxb-form-empty {
+    padding: 24px;
+    border: 1px dashed #c3c4c7;
+    border-radius: 6px;
+    color: #777;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Nothing is actually submitted from the canvas; make that visible rather
+   than letting an editor click Submit and wonder why nothing happened. */
+.cxb-form-wrap--editing .cxb-form-submit {
+    cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cxb-form-input,
+    .cxb-form-textarea,
+    .cxb-form-select,
+    .cxb-form-submit,
+    .cxb-form-file-zone,
+    .cxb-form-file-progress-bar {
+        transition: none;
+    }
+}

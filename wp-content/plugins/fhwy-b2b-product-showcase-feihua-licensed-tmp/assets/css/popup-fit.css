@@ -1,0 +1,397 @@
+/**
+ * 弹窗表单自适应紧凑 / Popup form auto-fit
+ * ---------------------------------------------------------------------------
+ * 弹窗里的内容不是固定的：表单字段可以在后台加到十几条，上方还可能压着产品摘要、
+ * 动画标语、隐私政策条款和人机验证。字段一多，面板就顶到 max-height，提交按钮被
+ * 推到折叠线以下——访客得先发现里面能滚，再滚下去才看得到「提交」。
+ *
+ * 这份样式表提供四档递进的紧凑度，由 assets/js/popup-fit.js 量完高度后挂在面板上：
+ *
+ *   [data-cxb-fit="1"]  轻压间距：内边距、字段间隔、各块之间的外边距。
+ *   [data-cxb-fit="2"]  重压间距，同时把控件压薄、字段名的字号收小。
+ *   [data-cxb-fit="3"]  字段文字移进控件内部（label 变 placeholder，
+ *                       由脚本加 .cxb-fit-hide-label 触发）。
+ *   [data-cxb-fit="4"]  能压的全压到底，之后仍然装不下才交给面板自己滚动。
+ *
+ * 第 2 档是量出来才加的：原先只有「压间距」和「收字段名」两级，两者之间差着一百多
+ * 像素，于是差十几像素装不下的表单也会被整张收掉字段名，省下的空间远超需要。中间
+ * 垫一档之后，字段名只在真正省不出来的时候才进控件。
+ *
+ * 四档共用同一批规则，档位之间只换一组自定义属性的值，所以调某一档的手感不会波及
+ * 其余几档，也不用维护四份几乎一样的选择器。
+ *
+ * 每处 var() 都写了兜底值。自定义属性未定义时 var() 会退化成继承值而不是「当作没写」，
+ * padding 之类的属性一旦继承到父级的值，紧凑模式就会变成布局事故。
+ *
+ * ⚠ 动画标语（.cxb-sg / .cxb-sg-text）在这里只动外边距，字号、行高、配色一律不碰。
+ *   标语是弹窗里唯一一句营销文案，缩小它省下的那几像素远不值它损失的注意力。
+ *
+ * @package Fhwy_B2B_Product_Showcase
+ * @since 2.1.85
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   1. 可用高度：把 90vh 的估算换成量出来的实际值
+   ═══════════════════════════════════════════════════════════════
+
+   原来的上限是 90vh，一个跟视口成比例的估算：底部浮窗还要加上标题栏，矮屏上
+   加完会超过一屏；居中弹窗的 calc(90vh - 52px) 又把标题栏的高度写死成 52，
+   而标题文字换行时它并不是 52。脚本量出标题栏的真实高度，再按视口算出面板能
+   占的高度，两个值通过下面这两个自定义属性落地。
+
+   属性由脚本设置，data-cxb-fit-space 也由脚本添加：脚本没跑（或跑挂了）时这些
+   规则整条不匹配，面板保持改动前的 90vh 行为。 */
+
+.nbb2b-lm-panel[data-cxb-fit-space] {
+    max-height: var(--cxb-fit-panel-max, 90vh);
+}
+
+/* box-sizing 是这条规则的关键，不是随手加的。面板主体没有声明过 box-sizing，
+   而 max-height 在 content-box 下量的是内容盒——上下 16px 内边距会加在上限之外。
+   于是主体自认为没有溢出（它的滚动区确实装得下），面板却按 max-height 把多出来的
+   那 16px 直接裁掉，提交按钮沉在裁切线以下，滚也滚不出来。改成 border-box 之后
+   上限量的就是整个盒子，主体的高度和面板给它的空间才是同一个数。
+
+   顺带一提，很多主题会写 * { box-sizing: border-box }，所以这个毛病在一部分站点
+   上根本不出现——正是那种「本地复现不了」的现象。这里显式声明，与主题无关。 */
+.nbb2b-lm-panel[data-cxb-fit-space] .nbb2b-lm-panel-body {
+    box-sizing: border-box;
+    max-height: var(--cxb-fit-body-max, 90vh);
+    overflow-y: auto;
+}
+
+/* 移动端底部菜单的留言弹窗是 flex 纵向布局，主体 flex:1 自己会吃掉剩余空间，
+   所以只需要给外框一个准确的上限。 */
+.nbb2b-mm-message-modal[data-cxb-fit-space] {
+    max-height: var(--cxb-fit-panel-max, 90vh);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   2. 三档紧凑度的参数表
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-cxb-fit="1"] {
+    --cf-header-pad:  10px 14px;
+    --cf-body-pad:    12px;
+    --cf-slogan-mb:   8px;
+    --cf-qs-mb:       8px;
+    --cf-qs-pad-v:    7px;
+    --cf-field-mb:    9px;
+    --cf-row-gap:     10px;
+    --cf-label-mb:    3px;
+    --cf-label-fs:    13px;
+    --cf-ctrl-pad:    7px 10px;
+    --cf-ta-min:      36px;
+    --cf-ta-max:      150px;
+    --cf-note-mb:     8px;
+    --cf-note-pad:    7px 12px;
+    --cf-note-fs:     13px;
+    --cf-note-lh:     1.5;
+    --cf-captcha-mb:  4px;
+    --cf-submit-mt:   10px;
+    --cf-btn-pad:     9px 16px;
+}
+
+[data-cxb-fit="2"] {
+    --cf-header-pad:  9px 14px;
+    --cf-body-pad:    10px 12px;
+    --cf-slogan-mb:   6px;
+    --cf-qs-mb:       6px;
+    --cf-qs-pad-v:    6px;
+    --cf-field-mb:    6px;
+    --cf-row-gap:     8px;
+    --cf-label-mb:    2px;
+    --cf-label-fs:    12px;
+    --cf-ctrl-pad:    6px 9px;
+    --cf-ta-min:      34px;
+    --cf-ta-max:      120px;
+    --cf-note-mb:     6px;
+    --cf-note-pad:    6px 10px;
+    --cf-note-fs:     12px;
+    --cf-note-lh:     1.45;
+    --cf-captcha-mb:  3px;
+    --cf-submit-mt:   8px;
+    --cf-btn-pad:     8px 16px;
+}
+
+[data-cxb-fit="3"] {
+    --cf-header-pad:  9px 14px;
+    --cf-body-pad:    10px 12px;
+    --cf-slogan-mb:   6px;
+    --cf-qs-mb:       7px;
+    --cf-qs-pad-v:    6px;
+    --cf-field-mb:    7px;
+    --cf-row-gap:     8px;
+    --cf-label-mb:    2px;
+    --cf-label-fs:    12px;
+    --cf-ctrl-pad:    6px 9px;
+    --cf-ta-min:      34px;
+    --cf-ta-max:      132px;
+    --cf-note-mb:     6px;
+    --cf-note-pad:    6px 10px;
+    --cf-note-fs:     12px;
+    --cf-note-lh:     1.45;
+    --cf-captcha-mb:  3px;
+    --cf-submit-mt:   8px;
+    --cf-btn-pad:     8px 16px;
+}
+
+[data-cxb-fit="4"] {
+    --cf-header-pad:  7px 12px;
+    --cf-body-pad:    8px 10px;
+    --cf-slogan-mb:   4px;
+    --cf-qs-mb:       5px;
+    --cf-qs-pad-v:    5px;
+    --cf-field-mb:    5px;
+    --cf-row-gap:     6px;
+    --cf-label-mb:    2px;
+    --cf-label-fs:    12px;
+    --cf-ctrl-pad:    5px 8px;
+    --cf-ta-min:      32px;
+    --cf-ta-max:      96px;
+    --cf-note-mb:     5px;
+    --cf-note-pad:    5px 9px;
+    --cf-note-fs:     11.5px;
+    --cf-note-lh:     1.4;
+    --cf-captcha-mb:  2px;
+    --cf-submit-mt:   6px;
+    --cf-btn-pad:     7px 16px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3. 外框与各区块的间距
+   ═══════════════════════════════════════════════════════════════ */
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-panel-header {
+    padding: var(--cf-header-pad, 10px 14px);
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-panel-body {
+    padding: var(--cf-body-pad, 12px);
+}
+
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-message-header {
+    padding: var(--cf-header-pad, 10px 14px);
+}
+
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-message-body {
+    padding: var(--cf-body-pad, 12px);
+}
+
+/* 动画标语：只收外边距。字号（clamp）、行高、配色、动画全部原样。 */
+.nbb2b-lm-panel[data-cxb-fit] .cxb-sg,
+.nbb2b-mm-message-modal[data-cxb-fit] .cxb-sg {
+    margin-bottom: var(--cf-slogan-mb, 8px);
+}
+
+/* 产品摘要：只收竖向内边距和下外边距。横向内边距保持 12px 不动——缩窄它会改变
+   缩略图那一行的可用宽度，而那一行能放几张是 leave-message.js 在打开时按当时的
+   宽度算好的，事后改宽度会让「+N」的数字对不上。 */
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-qs,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-qs {
+    padding-top: var(--cf-qs-pad-v, 7px);
+    padding-bottom: var(--cf-qs-pad-v, 7px);
+    margin-bottom: var(--cf-qs-mb, 8px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4. 字段与控件
+   ═══════════════════════════════════════════════════════════════ */
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field {
+    margin-bottom: var(--cf-field-mb, 9px);
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field:last-child {
+    margin-bottom: 0;
+}
+
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field {
+    margin-bottom: var(--cf-field-mb, 9px);
+}
+
+/* 居中弹窗的两栏行：行距与栅格间距同步收紧。 */
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-form--two-col .nbb2b-lm-form-row {
+    gap: var(--cf-row-gap, 10px);
+    margin-bottom: var(--cf-field-mb, 9px);
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-form--two-col .nbb2b-lm-form-row .nbb2b-lm-field {
+    margin-bottom: 0;
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field > label,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field > label {
+    margin-bottom: var(--cf-label-mb, 3px);
+    font-size: var(--cf-label-fs, 13px);
+}
+
+/* 控件本身。原表里这几条带 !important（主题对 input 的内边距意见很大），
+   所以这里也得带，且选择器要更长才压得住。 */
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field input[type="text"],
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field input[type="email"],
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field input[type="tel"],
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field select {
+    padding: var(--cf-ctrl-pad, 7px 10px) !important;
+}
+
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field input[type="text"],
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field input[type="email"],
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field input[type="tel"],
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field select {
+    padding: var(--cf-ctrl-pad, 7px 10px) !important;
+}
+
+/* 留言框。原表把它的整套竖向属性都写死了（类名重复一遍换来的高优先级），
+   居中弹窗还额外给 --nbb2b-ta-max 单独赋过值，所以这里同时压内边距、最小高度，
+   并把上限变量重新定义在更靠里的选择器上。 */
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field textarea.nbb2b-lm-textarea {
+    padding: var(--cf-ctrl-pad, 7px 10px) !important;
+    min-height: var(--cf-ta-min, 36px) !important;
+    --nbb2b-ta-max: var(--cf-ta-max, 150px);
+}
+
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field textarea.nbb2b-mm-textarea {
+    padding: var(--cf-ctrl-pad, 7px 10px) !important;
+    min-height: var(--cf-ta-min, 36px) !important;
+    --nbb2b-ta-max: var(--cf-ta-max, 150px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5. 字段文字移进控件内部（第 2 档起）
+   ═══════════════════════════════════════════════════════════════
+
+   .cxb-fit-hide-label 由脚本添加，同时把 label 的文字写进控件的 placeholder。
+   这里用的是「视觉隐藏」而不是 display:none：label 的 for 属性仍然指向控件，
+   读屏软件、点击 label 聚焦控件、以及表单本身的语义都不受影响，只是不占位。 */
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-hide-label > label,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-hide-label > label {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    border: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+}
+
+/* placeholder 此时是唯一的字段名，颜色不能太淡，否则整张表单看起来像是空的。
+   两条规则必须分开写：选择器列表里只要有一个浏览器不认的伪元素，整条规则都会
+   被丢弃，混写会让其中一边彻底失效。 */
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-hide-label input::placeholder,
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-hide-label textarea::placeholder,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-hide-label input::placeholder,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-hide-label textarea::placeholder {
+    color: #7d838d;
+    opacity: 1;
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-hide-label input::-webkit-input-placeholder,
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-hide-label textarea::-webkit-input-placeholder,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-hide-label input::-webkit-input-placeholder,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-hide-label textarea::-webkit-input-placeholder {
+    color: #7d838d;
+    opacity: 1;
+}
+
+/* 复选框组没有 placeholder 可用，字段名改成排在选项左边的一行，省掉独占的一行高度。 */
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-inline-label,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-inline-label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-inline-label > label,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-inline-label > label {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field.cxb-fit-inline-label > .nbb2b-lm-checkbox-group,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-field.cxb-fit-inline-label > .nbb2b-mm-msg-checkbox-group {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* 移动端那组复选项原本一行一个（display:block），字段名并到左边之后改成排得下就并排。
+   挂在 .cxb-fit-inline-label 上而不是某个档位号上：这两件事本来就是同一次变化的两半，
+   以后档位增减也不用回来改这里。 */
+.nbb2b-mm-message-modal[data-cxb-fit] .cxb-fit-inline-label > .nbb2b-mm-msg-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+}
+
+.nbb2b-mm-message-modal[data-cxb-fit] .cxb-fit-inline-label > .nbb2b-mm-msg-checkbox-group label {
+    margin-bottom: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6. 隐私政策、人机验证、提交按钮
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 隐私政策条款的样式是 PHP 里内联打印的一段 <style>，优先级 (0,1,0)，
+   这里靠选择器长度压过去，不需要 !important。 */
+.nbb2b-lm-panel[data-cxb-fit] .cxb-b2b-privacy-notice,
+.nbb2b-mm-message-modal[data-cxb-fit] .cxb-b2b-privacy-notice {
+    margin: var(--cf-note-mb, 8px) 0;
+    padding: var(--cf-note-pad, 7px 12px);
+    font-size: var(--cf-note-fs, 13px);
+    line-height: var(--cf-note-lh, 1.5);
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-recaptcha-branding,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-recaptcha-branding {
+    margin-top: var(--cf-captcha-mb, 4px);
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-recaptcha-wrap,
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-turnstile-wrap,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-recaptcha-wrap,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-turnstile-wrap {
+    margin-bottom: var(--cf-captcha-mb, 4px);
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-submit-wrap {
+    margin-top: var(--cf-submit-mt, 10px);
+}
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-submit-btn {
+    padding: var(--cf-btn-pad, 9px 16px) !important;
+}
+
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-msg-submit {
+    padding: var(--cf-btn-pad, 9px 16px) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   7. Elementor 表单
+   ═══════════════════════════════════════════════════════════════
+   接了 Elementor 表单的站点，弹窗里的字段不是本插件渲染的，标签结构也不归这里管，
+   所以只做一件事：把行距收掉。字段本身的样式交回 Elementor。 */
+
+.nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-elementor-form .elementor-field-group,
+.nbb2b-mm-message-modal[data-cxb-fit] .nbb2b-mm-elementor-form .elementor-field-group {
+    margin-bottom: var(--cf-field-mb, 9px) !important;
+    padding-bottom: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   8. 减少动态效果
+   ═══════════════════════════════════════════════════════════════
+   档位切换本身没有过渡动画（尺寸是一次算准的，不该有中间态），这里只是明确表态：
+   任何主题给弹窗内控件加的过渡，在重排的那一帧都不参与。 */
+
+@media (prefers-reduced-motion: reduce) {
+    .nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field input,
+    .nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field textarea,
+    .nbb2b-lm-panel[data-cxb-fit] .nbb2b-lm-field select {
+        transition: none !important;
+    }
+}

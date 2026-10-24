@@ -1,0 +1,878 @@
+/**
+ * Mobile Bottom Menu Styles
+ *
+ * @package Fhwy_B2B_Product_Showcase
+ */
+
+/* ================================================================
+   Desktop: hide the entire mobile-menu tree so nothing leaks
+   into the footer on wide viewports.
+   ================================================================ */
+.nbb2b-mobile-menu,
+.nbb2b-mm-products-overlay,
+.nbb2b-mm-products-modal,
+.nbb2b-mm-contact-overlay,
+.nbb2b-mm-message-overlay {
+    display: none !important;
+}
+
+/* ================================================================
+   Instant hide: prevent contact widget from flashing on mobile
+   BEFORE JS adds the .nbb2b-has-mobile-menu body class.
+   This pure media-query rule fires at first paint – no JS needed.
+   ================================================================ */
+@media (max-width: 768px) {
+    .nbb2b-contact-widget {
+        display: none !important;
+    }
+}
+
+@media (max-width: 768px) {
+
+    /* Prevent horizontal overflow.
+       ⚠ Must use `clip` — not `hidden`.
+       `overflow-x: hidden` on html/body creates a new scroll container
+       which breaks `position: sticky` on descendant elements (e.g. the
+       product-detail tab navigation).  `clip` has the same visual effect
+       (no horizontal scrollbar, content clipped at the edge) but does NOT
+       alter the scroll container, so sticky keeps working. */
+    html,
+    body {
+        overflow-x: clip !important;
+    }
+
+    /* ---- Bar ---- */
+    .nbb2b-mobile-menu {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: auto !important;
+        height: 50px;
+        background: #f5f5f5;
+        border-top: 1px solid #d0d0d0;
+        z-index: 999999 !important;
+        align-items: center;
+        justify-content: stretch;
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+    }
+
+    /* ---- Individual item ---- */
+    .nbb2b-mm-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1 1 0;
+        min-width: 0;
+        height: 100%;
+        cursor: pointer;
+        position: relative;
+        -webkit-tap-highlight-color: transparent;
+        text-decoration: none !important;
+        color: #333 !important;
+        padding: 4px 0 2px;
+        box-sizing: border-box;
+    }
+
+    /* List (quote basket) item: hidden by default in CSS.
+       PHP adds .nbb2b-mm-list-show when count > 0 at render time,
+       so the first paint already has the correct layout. JS keeps
+       the class in sync for live add/remove without page reload. */
+    .nbb2b-mm-item[data-action="list"] {
+        display: none;
+    }
+    .nbb2b-mm-item[data-action="list"].nbb2b-mm-list-show {
+        display: flex;
+    }
+
+    .nbb2b-mm-item[data-action="backtop"] {
+        flex: 0 0 40px;
+        max-width: 40px;
+    }
+
+    .nbb2b-mm-item:active {
+        background: rgba(0,0,0,.06);
+    }
+
+    .nbb2b-mm-icon {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .nbb2b-mm-icon img {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+    /* v2.6.1+ — 自定义菜单的内置图标以 inline SVG 输出，
+       跟随 .nbb2b-mm-item 的文字颜色，尺寸与 img 图标对齐。 */
+    .nbb2b-mm-icon svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+
+    /* 自定义菜单是真实链接，禁掉长按取消/选中态带来的视觉抖动 */
+    .nbb2b-mm-item-custom {
+        -webkit-touch-callout: none;
+    }
+
+    .nbb2b-mm-label {
+        font-size: 10px;
+        line-height: 1.2;
+        margin-top: 2px;
+        white-space: nowrap;
+        color: #555;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ---- Quote count badge ---- */
+    .nbb2b-mm-badge {
+        position: absolute;
+        top: -5px;
+        right: -8px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        font-size: 10px;
+        line-height: 16px;
+        text-align: center;
+        padding: 0 4px;
+        box-sizing: border-box;
+        color: #fff;
+        display: none;
+        pointer-events: none;
+    }
+
+    .nbb2b-mm-badge.nbb2b-mm-badge-show {
+        display: block;
+    }
+
+    /* ---- Body padding ---- */
+    /* Applied immediately via media query (no JS class dependency)
+       so the bar never overlaps content on first paint. */
+    body {
+        padding-bottom: 50px !important;
+    }
+
+    /* ---- Hide original floating widgets ---- */
+    body.nbb2b-has-mobile-menu .nbb2b-lm-widget {
+        display: none !important;
+    }
+    body.nbb2b-has-mobile-menu .cxb-b2b-quote-basket-toggle.cxb-b2b-quote-basket-toggle {
+        display: none !important;
+    }
+    body.nbb2b-has-mobile-menu .nbb2b-contact-widget {
+        display: none !important;
+    }
+
+    /* ---- Hide theme back-to-top buttons on mobile ---- */
+    body.nbb2b-has-mobile-menu #ast-scroll-top,           /* Astra */
+    body.nbb2b-has-mobile-menu .ast-scroll-top-icon,       /* Astra alt */
+    body.nbb2b-has-mobile-menu .generate-back-to-top,      /* GeneratePress */
+    body.nbb2b-has-mobile-menu #scroll-top,                /* OceanWP */
+    body.nbb2b-has-mobile-menu .flavor-back-to-top,        /* flavor */
+    body.nbb2b-has-mobile-menu #back-to-top,               /* generic */
+    body.nbb2b-has-mobile-menu .back-to-top,               /* generic */
+    body.nbb2b-has-mobile-menu #backtotop,                 /* generic */
+    body.nbb2b-has-mobile-menu .backtotop,                 /* generic */
+    body.nbb2b-has-mobile-menu #scroll-to-top,             /* generic */
+    body.nbb2b-has-mobile-menu .scroll-to-top,             /* generic */
+    body.nbb2b-has-mobile-menu .scrolltop,                 /* generic */
+    body.nbb2b-has-mobile-menu #scrolltop,                 /* generic */
+    body.nbb2b-has-mobile-menu .go-top,                    /* generic */
+    body.nbb2b-has-mobile-menu #go-top,                    /* generic */
+    body.nbb2b-has-mobile-menu .to-top,                    /* generic */
+    body.nbb2b-has-mobile-menu #toTop,                     /* generic */
+    body.nbb2b-has-mobile-menu #rocket-to-top,             /* starter-theme / starter-kit */
+    body.nbb2b-has-mobile-menu .ksuspended-btn,            /* starter-theme */
+    body.nbb2b-has-mobile-menu .tt-back-to-top,            /* flavor theme */
+    body.nbb2b-has-mobile-menu .jesuspended-btn,           /* flavor theme */
+    body.nbb2b-has-mobile-menu .wptt-back-to-top {         /* flavor theme */
+        display: none !important;
+    }
+
+    /* ================================================================
+       Shared modal close button
+       ================================================================ */
+    .nbb2b-mm-modal-close {
+        background: none !important;
+        border: none !important;
+        font-size: 22px !important;
+        cursor: pointer !important;
+        color: #999 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        box-shadow: none !important;
+        text-decoration: none !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        outline: none !important;
+        -webkit-appearance: none !important;
+        appearance: none !important;
+    }
+
+    /* ================================================================
+       Products Modal
+       ================================================================ */
+    .nbb2b-mm-products-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 1000001;
+        display: none;
+    }
+    .nbb2b-mm-products-overlay.nbb2b-mm-show { display: block !important; }
+
+    .nbb2b-mm-products-modal {
+        position: fixed; bottom: 50px; left: 0; right: 0;
+        max-height: 76vh; background: #fff; z-index: 1000002;
+        border-radius: 18px 18px 0 0; overflow: hidden;
+        display: none; flex-direction: column;
+        box-shadow: 0 -12px 32px -12px rgba(15, 23, 42, .28);
+        animation: nbb2b-mm-slideUp .25s ease;
+    }
+    .nbb2b-mm-products-overlay.nbb2b-mm-show + .nbb2b-mm-products-modal,
+    .nbb2b-mm-products-modal.nbb2b-mm-show { display: flex !important; }
+
+    @keyframes nbb2b-mm-slideUp {
+        from { transform: translateY(40px); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* 抓手：不可拖，只是告诉手指这是一张从底部升上来的片子。 */
+    .nbb2b-mm-products-grabber {
+        width: 38px; height: 4px; border-radius: 2px;
+        background: #d8dbe0; margin: 8px auto 0; flex-shrink: 0;
+    }
+
+    .nbb2b-mm-products-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 16px 10px; flex-shrink: 0;
+    }
+    .nbb2b-mm-products-header h3 { margin: 0 !important; font-size: 17px !important; font-weight: 650 !important; color: #14171f !important; flex-shrink: 0; white-space: nowrap; line-height: 1.3 !important; }
+
+    /* 搜索框独占一行。原来它挤在标题和关闭按钮之间，结果框窄到放不下
+       几个字，而结果下拉框（.nbb2b-msearch-dropdown）在那一行里根本没有
+       可以落脚的位置。 */
+    .nbb2b-mm-products-search {
+        position: relative;
+        padding: 0 16px 12px;
+        flex-shrink: 0;
+        border-bottom: 1px solid #eef0f3;
+    }
+    /* 圆角 + 聚焦描边。输入框本身的尺寸写在 render_mobile_search_bar() 的
+       行内 style 上（那是为了扛住合并 CSS 的插件），行内样式压得过普通
+       选择器，所以这里必须用 !important 才能改到它。 */
+    .nbb2b-mm-products-search .nbb2b-msearch-input {
+        height: 42px !important;
+        border-radius: 21px !important;
+        border: 1px solid #e3e6ea !important;
+        background: #f5f6f8 !important;
+        padding: 0 60px 0 16px !important;
+        font-size: 15px !important;
+        transition: border-color .18s ease, background-color .18s ease;
+    }
+    .nbb2b-mm-products-search .nbb2b-msearch-input:focus {
+        border-color: var(--cxb-primary-color, #0A7AFF) !important;
+        background: #fff !important;
+    }
+    .nbb2b-mm-products-search .nbb2b-msearch-icon { right: 14px !important; }
+    .nbb2b-mm-products-search .nbb2b-msearch-clear { right: 40px !important; }
+
+    /* 结果下拉框。此前这个类在任何一张表里都没有规则——脚本把 display
+       清空后它就以一个普通块元素的身份出现在标题行里，再被弹层的
+       overflow:hidden 剪掉，看起来就是「搜索没反应」。 */
+    .nbb2b-mm-products-search .nbb2b-msearch-dropdown {
+        position: absolute; left: 16px; right: 16px; top: calc(100% - 6px);
+        z-index: 5; max-height: 46vh; overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #fff; border: 1px solid #e6e8ec; border-radius: 14px;
+        box-shadow: 0 16px 34px -12px rgba(15, 23, 42, .3);
+    }
+    .nbb2b-mm-products-search .nbb2b-msearch-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 14px; text-decoration: none; color: #14171f;
+        border-bottom: 1px solid #f2f4f7;
+    }
+    .nbb2b-mm-products-search .nbb2b-msearch-item:last-child { border-bottom: none; }
+    .nbb2b-mm-products-search .nbb2b-msearch-item:active { background: #f5f6f8; }
+    .nbb2b-mm-products-search .nbb2b-msearch-thumb {
+        width: 42px; height: 42px; object-fit: cover; border-radius: 8px;
+        flex-shrink: 0; background: #f2f4f7;
+    }
+    .nbb2b-mm-products-search .nbb2b-msearch-title {
+        font-size: 13.5px; line-height: 1.35; font-weight: 500;
+    }
+    .nbb2b-mm-products-search .nbb2b-msearch-no {
+        padding: 16px; text-align: center; color: #8a9099; font-size: 13px;
+    }
+
+    .nbb2b-mm-products-body {
+        overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1;
+        overscroll-behavior: contain;
+        padding: 6px 0 10px;
+    }
+    .nbb2b-mm-cat-list { list-style: none; margin: 0; padding: 0; }
+    .nbb2b-mm-cat-item { list-style: none; padding: 0 10px; }
+
+    /* 一行两个热区：链接进分类，按钮展开子级。分成两个盒子而不是一个
+       <a> 里塞一个箭头，是为了让两者各有自己的点击范围和焦点。 */
+    .nbb2b-mm-cat-row {
+        display: flex; align-items: center;
+        border-radius: 14px;
+        transition: background-color .16s ease;
+    }
+    .nbb2b-mm-cat-row:active { background: #f2f4f7; }
+
+    .nbb2b-mm-cat-link {
+        display: flex; align-items: center; flex: 1; min-width: 0;
+        padding: 10px 6px 10px 8px;
+        text-decoration: none; color: #14171f; font-size: 14.5px;
+    }
+    .nbb2b-mm-cat-img {
+        width: 46px; height: 46px; object-fit: cover; border-radius: 11px;
+        margin-right: 12px; flex-shrink: 0; background: #f2f4f7;
+    }
+    .nbb2b-mm-cat-text { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+    .nbb2b-mm-cat-name {
+        font-weight: 550; line-height: 1.35; min-width: 0;
+        overflow-wrap: break-word; word-break: break-word;
+    }
+    /* 数量是这一屏里唯一能回答「点进去有多少东西」的信息，值得占一个胶囊。 */
+    .nbb2b-mm-cat-count {
+        flex-shrink: 0; font-size: 11px; line-height: 1;
+        padding: 3px 7px; border-radius: 9px;
+        background: #eef1f5; color: #6b7280; font-weight: 500;
+    }
+
+    .nbb2b-mm-cat-toggle {
+        flex-shrink: 0; width: 40px; height: 40px; margin-right: 4px;
+        display: flex; align-items: center; justify-content: center;
+        padding: 0; border: 0; background: transparent; cursor: pointer;
+        color: #9aa1ab; border-radius: 50%;
+        -webkit-appearance: none; appearance: none;
+    }
+    .nbb2b-mm-cat-toggle:active { background: #e8ebef; }
+    .nbb2b-mm-cat-toggle svg {
+        display: block;
+        transition: transform .22s cubic-bezier(.4, 0, .2, 1);
+    }
+    /* 折叠朝下、展开朝上——与侧边栏抽屉式分类同一套语义。 */
+    .nbb2b-mm-cat-toggle--open { color: var(--cxb-primary-color, #0A7AFF); }
+    .nbb2b-mm-cat-toggle--open svg { transform: rotate(180deg); }
+
+    /* 就地展开，不再盖一层全屏面板：弹层只有 76vh，盖层会让访客失去
+       「我在哪一组」的上下文，而这正是他刚点开的那一组。 */
+    .nbb2b-mm-sub-panel {
+        display: none;
+        margin: 2px 0 8px; padding: 10px 8px 4px;
+        background: #f7f8fa; border-radius: 14px;
+    }
+    .nbb2b-mm-sub-panel.nbb2b-mm-sub-open { display: block; animation: nbb2b-mm-subIn .2s ease; }
+
+    @keyframes nbb2b-mm-subIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .nbb2b-mm-sub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
+    .nbb2b-mm-sub-item {
+        display: flex; flex-direction: column; align-items: center;
+        text-decoration: none; color: #14171f; padding: 6px 2px;
+        border-radius: 10px;
+    }
+    .nbb2b-mm-sub-item:active { background: #e9ecf1; }
+    .nbb2b-mm-sub-thumb {
+        display: block; width: 100%; aspect-ratio: 1 / 1;
+        border-radius: 10px; overflow: hidden; background: #fff;
+        border: 1px solid #e9ecf1;
+    }
+    .nbb2b-mm-sub-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .nbb2b-mm-sub-name {
+        font-size: 11.5px; text-align: center; margin-top: 6px; line-height: 1.3;
+        word-break: break-word; font-weight: 500;
+    }
+
+    .nbb2b-mm-sub-all {
+        display: flex; align-items: center; justify-content: center; gap: 4px;
+        margin-top: 8px; padding: 10px;
+        font-size: 13px; font-weight: 550; text-decoration: none;
+        color: var(--cxb-primary-color, #0A7AFF);
+    }
+    .nbb2b-mm-sub-all:active { opacity: .6; }
+
+    /* ================================================================
+       Contact Modal
+       ================================================================ */
+    .nbb2b-mm-contact-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,.55); z-index: 1000001;
+        display: none; align-items: center; justify-content: center;
+    }
+    .nbb2b-mm-contact-overlay.nbb2b-mm-show { display: flex !important; }
+    .nbb2b-mm-contact-modal {
+        background: #fff !important; border-radius: 12px; width: 90%; max-width: 340px;
+        max-height: 80vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+        box-shadow: 0 8px 30px rgba(0,0,0,.25); animation: nbb2b-mm-fadeIn .25s ease;
+        color: #333 !important;
+    }
+    @keyframes nbb2b-mm-fadeIn {
+        from { opacity: 0; transform: scale(.92); }
+        to   { opacity: 1; transform: scale(1); }
+    }
+    .nbb2b-mm-contact-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 16px; border-bottom: 1px solid #eee;
+    }
+    .nbb2b-mm-contact-header h3 { margin: 0 !important; font-size: 16px !important; font-weight: 600 !important; color: #333 !important; line-height: 1.4 !important; }
+    .nbb2b-mm-contact-list { list-style: none; margin: 0; padding: 0; }
+    .nbb2b-mm-contact-row {
+        display: flex; align-items: center; padding: 14px 16px;
+        border-bottom: 1px solid #f0f0f0; cursor: pointer; text-decoration: none; color: #333;
+    }
+    .nbb2b-mm-contact-row:last-child { border-bottom: none; }
+    .nbb2b-mm-contact-row:active { background: #f5f5f5; }
+    .nbb2b-mm-contact-row-icon { width: 24px; height: 24px; flex-shrink: 0; margin-right: 14px; display: flex; align-items: center; justify-content: center; }
+    .nbb2b-mm-contact-row-icon img { width: 24px; height: 24px; }
+    .nbb2b-mm-contact-row-info { flex: 1; font-size: 14px; line-height: 1.4; word-break: break-all; }
+    .nbb2b-mm-contact-row-label { font-size: 11px; color: #999; display: block; margin-bottom: 2px; }
+    /* 其他社交媒体行：内层是一个 <a>，把它撑满整行，热区才与上面那几行
+       一致。内置行的内边距在 li 上，这里移到 a 上，否则可点区域会比看上去小一圈。 */
+    .nbb2b-mm-contact-row--social { padding: 0; }
+    .nbb2b-mm-contact-social-link {
+        display: flex; align-items: center; width: 100%;
+        padding: 14px 16px; text-decoration: none; color: inherit;
+    }
+    .nbb2b-mm-contact-row--social .nbb2b-mm-contact-row-icon svg { width: 24px; height: 24px; display: block; }
+
+    .nbb2b-mm-contact-wechat-detail { display: flex; flex-direction: column; align-items: flex-start; }
+    .nbb2b-mm-contact-wechat-qr { width: 120px; height: auto; border-radius: 6px; margin-top: 6px; border: 1px solid #eee; }
+
+    /* ================================================================
+       Message Modal
+       ================================================================ */
+    .nbb2b-mm-message-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,.55); z-index: 1000001;
+        display: none; align-items: center; justify-content: center;
+    }
+    .nbb2b-mm-message-overlay.nbb2b-mm-show { display: flex !important; }
+    .nbb2b-mm-message-modal {
+        background: #fff !important; border-radius: 12px; width: 92%; max-width: 380px;
+        max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+        box-shadow: 0 8px 30px rgba(0,0,0,.25); animation: nbb2b-mm-fadeIn .25s ease;
+        color: #333 !important;
+    }
+    .nbb2b-mm-message-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 16px; border-bottom: 1px solid #eee; flex-shrink: 0;
+    }
+    .nbb2b-mm-message-header h3 { margin: 0 !important; font-size: 16px !important; font-weight: 600 !important; color: #333 !important; line-height: 1.4 !important; }
+    .nbb2b-mm-message-body { padding: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; }
+    .nbb2b-mm-msg-field { margin-bottom: 14px; }
+    .nbb2b-mm-msg-field label { display: block; font-size: 13px; font-weight: 500; color: #333 !important; margin-bottom: 4px; }
+    .nbb2b-mm-msg-field input[type="text"],
+    .nbb2b-mm-msg-field input[type="email"],
+    .nbb2b-mm-msg-field input[type="tel"],
+    .nbb2b-mm-msg-field textarea,
+    .nbb2b-mm-msg-field select {
+        width: 100% !important; padding: 8px 10px !important; border: 1px solid #ddd !important; border-radius: 6px !important;
+        font-size: 14px !important; box-sizing: border-box !important; background: #fff !important; -webkit-appearance: none !important;
+        color: #333 !important;
+    }
+    /* Message / Requirements textarea — same reasoning as
+       leave-message.css: height is the property themes overrule, so every
+       part of it is stated, with the class doubled so the selector outranks
+       a theme's !important on a bare `textarea`. Grown by
+       assets/js/autogrow.js, capped by max-height. */
+    .nbb2b-mm-msg-field textarea.nbb2b-mm-textarea.nbb2b-mm-textarea {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 40px !important;
+        max-height: var(--nbb2b-ta-max, 200px) !important;
+        line-height: 1.45 !important;
+        padding: 8px 10px !important;
+        margin: 0 !important;
+        font-size: 14px !important;
+        font-family: inherit !important;
+        box-sizing: border-box !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        vertical-align: top !important;
+        resize: vertical;
+    }
+
+    .nbb2b-mm-msg-field textarea.nbb2b-ta-auto.nbb2b-ta-auto {
+        resize: none !important;
+    }
+    .nbb2b-mm-msg-field input:focus,
+    .nbb2b-mm-msg-field textarea:focus,
+    .nbb2b-mm-msg-field select:focus { outline: none; border-color: #999; }
+    .nbb2b-mm-msg-required { color: #d63638; }
+    .nbb2b-mm-msg-checkbox-group label { display: block; font-weight: 400; font-size: 14px; margin-bottom: 4px; }
+    .nbb2b-mm-msg-submit {
+        width: 100% !important; padding: 10px !important; border: none !important; border-radius: 6px !important;
+        color: #fff !important; font-size: 15px !important; font-weight: 600 !important; cursor: pointer !important; margin-top: 4px !important;
+        box-shadow: none !important; text-decoration: none !important; text-transform: none !important;
+        letter-spacing: normal !important; text-align: center !important; line-height: 1.4 !important;
+        -webkit-appearance: none !important; appearance: none !important;
+        min-height: 0 !important; outline: none !important; display: block !important;
+    }
+    .nbb2b-mm-msg-submit:disabled { opacity: .6 !important; cursor: not-allowed !important; }
+    .nbb2b-mm-msg-result { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13px; display: none; }
+    .nbb2b-mm-msg-result.nbb2b-mm-msg-success { display: block; background: #ecfdf5; color: #166534; }
+    .nbb2b-mm-msg-result.nbb2b-mm-msg-error { display: block; background: #fef2f2; color: #991b1b; }
+
+    /* reCAPTCHA widget in mobile message modal */
+    .nbb2b-mm-recaptcha-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+    }
+    .nbb2b-mm-recaptcha-wrap .g-recaptcha {
+        transform: scale(0.92);
+        transform-origin: center top;
+    }
+
+    /* Cloudflare Turnstile widget in mobile message modal */
+    .nbb2b-mm-turnstile-wrap {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+    }
+    .nbb2b-mm-turnstile-wrap .cf-turnstile {
+        transform: scale(0.92);
+        transform-origin: center top;
+    }
+
+    /* ================================================================
+       Quote basket summary (above form when items exist)
+       ================================================================ */
+    .nbb2b-qs {
+        background: #f0f7ff;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 14px;
+    }
+    .nbb2b-qs-count { font-weight: 700; }
+
+    /* ── Single product layout ── */
+    .nbb2b-qs-single-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .nbb2b-qs-single-thumb {
+        flex-shrink: 0;
+        position: relative;
+        cursor: pointer;
+    }
+    .nbb2b-qs-single-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .nbb2b-qs-single-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .nbb2b-qs-single-qty-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #555;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 0 !important;
+    }
+    .nbb2b-qs-qty-input {
+        width: 80px !important;
+        padding: 4px 6px !important;
+        border: 1px solid #c0d0e0 !important;
+        border-radius: 4px !important;
+        font-size: 13px !important;
+        text-align: center !important;
+        color: #333 !important;
+        background: #fff !important;
+    }
+
+    /* ── Multi product header ── */
+    .nbb2b-qs-multi-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .nbb2b-qs-multi-header .nbb2b-qs-text {
+        font-size: 12px;
+        font-weight: 500;
+        color: #1a5276;
+        flex: 1;
+        min-width: 0;
+    }
+    .nbb2b-qs-input-qty-btn {
+        flex-shrink: 0;
+        padding: 4px 10px !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        color: #fff !important;
+        background: var(--cxb-primary-color, #0A7AFF) !important;
+        border: none !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        white-space: nowrap;
+    }
+
+    /* ── Product table (expandable) ── */
+    .nbb2b-qs-product-table {
+        margin-top: 10px;
+        padding-top: 10px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+    .nbb2b-qs-table {
+        width: 100%;
+        max-width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+        font-size: 12px;
+        border: none !important;
+    }
+    .nbb2b-qs-table th,
+    .nbb2b-qs-table td {
+        border: none !important;
+    }
+    .nbb2b-qs-table th {
+        text-align: left;
+        font-size: 11px;
+        font-weight: 600;
+        color: #666;
+        padding: 4px 6px 6px;
+    }
+    .nbb2b-qs-table th:nth-child(1) { width: 55%; }
+    .nbb2b-qs-table th:nth-child(2) { width: 30%; }
+    .nbb2b-qs-table th:nth-child(3) { width: 15%; }
+    .nbb2b-qs-table td {
+        padding: 6px;
+        vertical-align: middle;
+        overflow: hidden;
+    }
+    .nbb2b-qs-table tbody tr:nth-child(even) {
+        background-color: #f5f7fa;
+    }
+    .nbb2b-qs-table tbody tr:nth-child(odd) {
+        background-color: #ffffff;
+    }
+    .nbb2b-qs-table-product {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    .nbb2b-qs-table-product span {
+        display: block;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+        color: #333;
+    }
+    .nbb2b-qs-table-img {
+        width: 36px;
+        height: 36px;
+        object-fit: cover;
+        border-radius: 3px;
+        border: 1px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    .nbb2b-qs-table-qty { width: 30%; }
+    .nbb2b-qs-table-qty .nbb2b-qs-qty-input {
+        width: 72px !important;
+        padding: 3px 4px !important;
+        font-size: 12px !important;
+    }
+    .nbb2b-qs-table-del { width: 15%; text-align: center; }
+    .nbb2b-qs-table-remove {
+        display: inline-block;
+        width: 20px; height: 20px;
+        line-height: 18px;
+        text-align: center;
+        font-size: 14px; font-weight: 700;
+        color: #999; cursor: pointer;
+        border-radius: 50%;
+        transition: color 0.15s, background 0.15s;
+    }
+    .nbb2b-qs-table-remove:hover {
+        color: #fff;
+        background: rgba(220, 38, 38, 0.85);
+    }
+    .nbb2b-qs-done-btn {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-top: 8px !important;
+        margin-bottom: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding: 6px 0 !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        font-family: inherit !important;
+        color: #555 !important;
+        background: #e8f0f8 !important;
+        background-image: none !important;
+        border: 1px solid #d0e3f7 !important;
+        border-radius: 4px !important;
+        cursor: pointer !important;
+        text-align: center !important;
+        transition: background 0.15s !important;
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        box-shadow: none !important;
+        text-decoration: none !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        height: auto !important;
+        min-width: 0 !important;
+        outline: none !important;
+        line-height: 1.4 !important;
+        float: none !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+    }
+    .nbb2b-qs-thumbs {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        flex-wrap: nowrap;
+        overflow: visible;
+        padding: 4px 4px 0;
+    }
+    .nbb2b-qs-thumb-wrap {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 50px;
+        position: relative;
+    }
+    .nbb2b-qs-thumb-wrap.nbb2b-qs-deletable {
+        cursor: pointer;
+    }
+    .nbb2b-qs-del {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 16px;
+        height: 16px;
+        line-height: 14px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 700;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.50);
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 0.15s, background 0.15s;
+        pointer-events: none;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+    }
+    .nbb2b-qs-thumb-wrap:hover .nbb2b-qs-del {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .nbb2b-qs-del:hover {
+        background: rgba(220, 38, 38, 0.85);
+    }
+    /* On touch devices show the button by default (no hover) */
+    @media (hover: none) {
+        .nbb2b-qs-del {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    }
+    .nbb2b-qs-thumb {
+        width: 50px; height: 50px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+        background: #f9f9f9;
+        flex-shrink: 0;
+        display: block;
+    }
+    .nbb2b-qs-thumb-empty {
+        display: inline-block;
+        width: 50px; height: 50px;
+        border-radius: 4px;
+        border: 1px dashed #ccc;
+        background: #f0f0f0;
+        flex-shrink: 0;
+    }
+    .nbb2b-qs-qty {
+        font-size: 10px;
+        color: #1a5276;
+        font-weight: 600;
+        margin-top: 2px;
+        white-space: nowrap;
+        line-height: 1.2;
+    }
+    .nbb2b-qs-more {
+        font-size: 18px; font-weight: 700;
+        color: #888; flex-shrink: 0;
+        padding: 0 4px; line-height: 50px;
+    }
+
+    /* ================================================================
+       Elementor form integration
+       ================================================================ */
+    .nbb2b-mm-elementor-form {
+        max-width: 100%;
+        overflow: hidden;
+    }
+    .nbb2b-mm-elementor-form .elementor-form {
+        padding: 0 !important;
+    }
+    .nbb2b-mm-elementor-form .elementor-widget-container {
+        padding: 0 !important;
+    }
+
+} /* end @media */

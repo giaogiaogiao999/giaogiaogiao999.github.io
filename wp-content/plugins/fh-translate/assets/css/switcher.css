@@ -1,0 +1,452 @@
+.fhwp-switcher {
+	--fhwp-gap: 10px;
+	--fhwp-color: inherit;
+	font-size: inherit;
+}
+
+.fhwp-switcher__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--fhwp-gap);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.fhwp-switcher--list .fhwp-switcher__list {
+	flex-direction: column;
+}
+
+.fhwp-switcher__item {
+	margin: 0;
+}
+
+.fhwp-switcher__link {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	text-decoration: none;
+	color: var(--fhwp-color);
+	line-height: 1.4;
+}
+
+.fhwp-switcher__link:hover,
+.fhwp-switcher__link:focus {
+	text-decoration: underline;
+}
+
+.fhwp-switcher__item--current .fhwp-switcher__link {
+	font-weight: 600;
+}
+
+.fhwp-switcher__flag {
+	display: inline-block;
+	vertical-align: middle;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+	border-radius: 2px;
+}
+
+.fhwp-switcher__select {
+	max-width: 100%;
+	padding: 4px 6px;
+}
+
+/* Right to left languages. The switcher mirrors with the language it shows:
+   the flag stays next to the name, rows line up on the right, and mixed content
+   (Arabic next to a model number, for example) keeps its own order. */
+.fhwp-switcher--rtl {
+	direction: rtl;
+}
+
+.fhwp-switcher--rtl .fhwp-switcher__list,
+.fhwp-switcher--rtl .fhwp-switcher__select {
+	text-align: right;
+}
+
+.fhwp-switcher__link,
+.fhwp-switcher__toggle,
+.fhwp-switcher__select {
+	unicode-bidi: isolate;
+}
+
+/* Collapsed style: a compact toggle that opens on hover or keyboard focus.
+   Pure CSS on purpose, so cache plugins that delay JavaScript cannot break it. */
+.fhwp-switcher--collapse {
+	position: relative;
+}
+
+.fhwp-switcher .fhwp-switcher__toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	background: none;
+	background-color: transparent;
+	background-image: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	color: inherit;
+	font: inherit;
+	line-height: inherit;
+	letter-spacing: inherit;
+	text-transform: none;
+	text-shadow: none;
+	width: auto;
+	min-width: 0;
+	cursor: pointer;
+	white-space: nowrap;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.fhwp-switcher__caret {
+	/* Solid triangle drawn with borders, sized in em so it scales with the menu
+	   it is placed in. It mirrors the caret the menu uses for its own submenus
+	   instead of a thin text glyph. */
+	display: inline-block;
+	width: 0;
+	height: 0;
+	margin-left: 6px;
+	border-left: 0.42em solid transparent;
+	border-right: 0.42em solid transparent;
+	border-top: 0.5em solid currentColor;
+	vertical-align: middle;
+	opacity: 1;
+}
+
+.fhwp-switcher--collapse .fhwp-switcher__list {
+	/* Hidden with visibility rather than display so the flags are loaded and
+	   measured up front: a display:none list would make them pop in the moment
+	   the visitor opens it. */
+	/* The list is drawn on its own surface, so it sets the text colour for its
+	   rows instead of inheriting the colour of the bar it hangs from: a menu
+	   with white text on a dark bar would otherwise give white text on white. */
+	--fhwp-color: #1d2327;
+	display: flex;
+	visibility: hidden;
+	opacity: 0;
+	position: absolute;
+	top: 100%;
+	right: 0;
+	z-index: 100000;
+	flex-direction: column;
+	gap: 0;
+	min-width: 190px;
+	max-height: 60vh;
+	overflow-y: auto;
+	/* No gap between the toggle and the list: a margin would break the hover
+	   state while the pointer travels from the button into the list. The space
+	   is padding instead, which belongs to the element and keeps hover alive. */
+	margin: 0;
+	padding: 10px 6px 6px;
+	background: #fff;
+	color: #1d2327;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 6px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.fhwp-switcher--collapse:hover .fhwp-switcher__list,
+.fhwp-switcher--collapse:focus-within .fhwp-switcher__list {
+	visibility: visible;
+	opacity: 1;
+}
+
+.fhwp-switcher--collapse .fhwp-switcher__link {
+	width: 100%;
+	padding: 5px 8px;
+	border-radius: 4px;
+	white-space: nowrap;
+}
+
+/* The open list paints its own surface, so its rows get their own text colour
+   instead of the colour of the bar they hang from. The selector is deliberately
+   specific: themes stylesheet rules like ".elementor-nav-menu a" would otherwise
+   win and paint white text on the white list. */
+.fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__link,
+.fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__link:visited,
+.fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__link:hover,
+.fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__link:focus {
+	color: #1d2327;
+}
+
+.fhwp-switcher--collapse .fhwp-switcher__link:hover {
+	background: rgba(0, 0, 0, 0.06);
+	text-decoration: none;
+}
+
+.fhwp-float {
+	overflow: visible;
+}
+
+.fhwp-float {
+	position: fixed;
+	z-index: 9999;
+	padding: 8px 10px;
+	border-radius: 6px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+}
+
+/* A floating switcher that lists the languages has to stay inside the corner
+   it was put in: without a limit it grows as wide as the longest row and turns
+   into a bar across the whole screen. The collapsed variant keeps overflowing
+   on purpose, its dropdown has to leave the box. */
+.fhwp-float--inline,
+.fhwp-float--list {
+	max-width: min(320px, calc(100vw - 32px));
+	max-height: calc(100vh - 32px);
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+.fhwp-float--inline .fhwp-switcher__list {
+	justify-content: flex-start;
+}
+
+/* In a bottom corner the collapsed list has to grow upwards, otherwise it opens
+   straight out of the viewport. */
+.fhwp-float--bottom-right .fhwp-switcher--collapse .fhwp-switcher__list,
+.fhwp-float--bottom-left .fhwp-switcher--collapse .fhwp-switcher__list {
+	top: auto;
+	bottom: 100%;
+}
+
+/* In a left corner the list opens to the right, in a right corner to the left,
+   so it never leaves the screen whichever corner holds it. */
+.fhwp-float--top-left .fhwp-switcher--collapse .fhwp-switcher__list,
+.fhwp-float--bottom-left .fhwp-switcher--collapse .fhwp-switcher__list {
+	right: auto;
+	left: 0;
+}
+
+.fhwp-float--top-right .fhwp-switcher--collapse .fhwp-switcher__list,
+.fhwp-float--bottom-right .fhwp-switcher--collapse .fhwp-switcher__list {
+	right: 0;
+	left: auto;
+}
+
+.fhwp-float--light {
+	--fhwp-color: #1d2327;
+	background: #fff;
+	color: #1d2327;
+}
+
+.fhwp-float--dark {
+	--fhwp-color: #f0f0f1;
+	background: #1d2327;
+	color: #fff;
+}
+
+/* Same reason as the menu list: the floating switcher is a surface of its own. */
+.fhwp-float--light .fhwp-switcher__list .fhwp-switcher__link,
+.fhwp-float--light .fhwp-switcher__toggle {
+	color: #1d2327;
+}
+
+.fhwp-float--dark .fhwp-switcher__list .fhwp-switcher__link,
+.fhwp-float--dark .fhwp-switcher__toggle {
+	color: #f0f0f1;
+}
+
+/* Same pinning for the floating switcher: a theme that styles every link must
+   not stretch the rows of this small panel either. */
+.fhwp-float .fhwp-switcher__list .fhwp-switcher__item,
+.fhwp-float .fhwp-switcher__list .fhwp-switcher__link {
+	padding: 6px 8px !important;
+	margin: 0 !important;
+	min-height: 0 !important;
+	height: auto !important;
+	line-height: 1.4 !important;
+	text-decoration: none !important;
+	border: 0 !important;
+	box-shadow: none !important;
+}
+
+.fhwp-float .fhwp-switcher__list .fhwp-switcher__link {
+	display: flex !important;
+	align-items: center !important;
+	gap: 6px !important;
+}
+
+.fhwp-float--bottom-right {
+	right: 16px;
+	bottom: 16px;
+}
+
+.fhwp-float--bottom-left {
+	left: 16px;
+	bottom: 16px;
+}
+
+.fhwp-float--top-right {
+	right: 16px;
+	top: 16px;
+}
+
+.fhwp-float--top-left {
+	left: 16px;
+	top: 16px;
+}
+
+/* Switcher appended to a navigation menu.
+   Page builders and themes hide every nested list inside a menu to collapse
+   submenus, and that rule also hides the switcher. Elementor ships
+   ".elementor-nav-menu ul { display: none }", which beats the plain
+   ".fhwp-switcher__list" rule because it carries an element selector. The
+   selectors below are specific enough to win it back without !important, and
+   they deliberately skip the collapsed variant so its hover list still opens
+   the normal way. */
+li.fhwp-menu-item {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+li.fhwp-menu-item.fhwp-switcher:not(.fhwp-switcher--collapse) > ul.fhwp-switcher__list,
+li.fhwp-menu-item .fhwp-switcher:not(.fhwp-switcher--collapse) .fhwp-switcher__list {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	width: auto;
+	white-space: nowrap;
+	position: static;
+	visibility: visible;
+	opacity: 1;
+	max-height: none;
+	overflow: visible;
+}
+
+/* A collapsed switcher inside a menu opens downwards from the menu item. */
+li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__list,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__list {
+	top: 100%;
+	/* Anchored to the right edge of the menu item, so a narrow window cannot
+	   push the panel off the screen. */
+	left: auto;
+	right: 0;
+	width: max-content;
+	min-width: 190px;
+	max-width: min(340px, calc(100vw - 24px));
+	flex-wrap: nowrap;
+	align-items: stretch;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+/* One language per line, never wider than the panel. */
+li.fhwp-menu-item.fhwp-switcher--collapse .fhwp-switcher__item,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__item {
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+}
+
+li.fhwp-menu-item.fhwp-switcher--collapse .fhwp-switcher__link,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__link {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	min-width: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+/* Last line of defence against theme menu styles.
+   Themes very often target every menu link ("#header .elementor-nav-menu a",
+   ".ekit-menu-nav-link", …) and those rules are more specific than a plugin
+   class: the language names then inherit the colour of the bar (white text on
+   the white dropdown) and the theme's padding stretches every row. The open
+   list is a surface of its own, so its rows are pinned here. */
+li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__list,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__list {
+	color: #1d2327 !important;
+}
+
+li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__list .fhwp-switcher__item,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__item {
+	display: block !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	min-height: 0 !important;
+	height: auto !important;
+	background: none !important;
+	border: 0 !important;
+}
+
+li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__list .fhwp-switcher__link,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__link {
+	display: flex !important;
+	align-items: center !important;
+	gap: 6px !important;
+	color: #1d2327 !important;
+	background: none !important;
+	border: 0 !important;
+	box-shadow: none !important;
+	padding: 6px 8px !important;
+	margin: 0 !important;
+	min-height: 0 !important;
+	height: auto !important;
+	line-height: 1.4 !important;
+	letter-spacing: normal !important;
+	text-transform: none !important;
+	text-shadow: none !important;
+	text-decoration: none !important;
+	white-space: nowrap !important;
+	overflow-wrap: normal !important;
+}
+
+li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__list .fhwp-switcher__link:hover,
+li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__list .fhwp-switcher__link:focus,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__link:hover,
+li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__list .fhwp-switcher__link:focus {
+	color: #1d2327 !important;
+	background: rgba(0, 0, 0, 0.06) !important;
+	text-decoration: none !important;
+}
+
+/* Inside a mobile menu (which is itself a dropdown) a nested dropdown is
+   awkward, so the languages are listed straight away. */
+.elementor-nav-menu--dropdown li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__toggle,
+.elementor-nav-menu--dropdown li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__toggle {
+	display: none;
+}
+
+.elementor-nav-menu--dropdown li.fhwp-menu-item.fhwp-switcher--collapse > .fhwp-switcher__list,
+.elementor-nav-menu--dropdown li.fhwp-menu-item .fhwp-switcher--collapse .fhwp-switcher__list {
+	display: flex;
+	flex-wrap: nowrap;
+	position: static;
+	visibility: visible;
+	opacity: 1;
+	width: auto;
+	min-width: 0;
+	max-width: 100%;
+	max-height: none;
+	padding: 0;
+	background: none;
+	border: 0;
+	box-shadow: none;
+	overflow: visible;
+}
+
+/* The mobile menu sizes itself to its widest entry, so the switcher has to
+   keep its natural width there instead of shrinking to a single character. */
+.elementor-nav-menu--dropdown li.fhwp-menu-item .fhwp-switcher__item,
+.elementor-nav-menu--dropdown li.fhwp-menu-item .fhwp-switcher__link {
+	width: auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow-wrap: normal;
+}
+
+/* Blocks printed by [fhwp_language]: the wrapper keeps the layout of the
+   content it holds, so a block inside a paragraph does not break the page. */
+.fhwp-lang-block {
+	display: contents;
+}
+
+.fhwp-lang-block[hidden] {
+	display: none !important;
+}

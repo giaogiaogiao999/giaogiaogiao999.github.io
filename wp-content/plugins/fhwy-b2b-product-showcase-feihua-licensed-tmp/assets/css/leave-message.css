@@ -1,0 +1,1022 @@
+/**
+ * Leave a Message — floating widget
+ *
+ * @since 2.5.0
+ */
+
+/* ── Container ─────────────────────────────────────────────── */
+.nbb2b-lm-widget {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    direction: ltr;
+}
+
+/* ── Collapsed bar ─────────────────────────────────────────── */
+.nbb2b-lm-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 200px;
+    height: 40px;
+    /* background-color set via inline dynamic CSS */
+    color: #ffffff;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 6px 6px 0 0;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.nbb2b-lm-bar:hover {
+    transform: translateY(-1px);
+}
+
+.nbb2b-lm-bar.nbb2b-lm-bar--open {
+    display: none;
+}
+
+.nbb2b-lm-icon,
+.nbb2b-lm-arrow {
+    flex-shrink: 0;
+}
+
+.nbb2b-lm-text {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* ── Expanded panel ────────────────────────────────────────── */
+.nbb2b-lm-panel {
+    width: 350px;
+    background: #ffffff !important;
+    border-radius: 10px 10px 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    animation: nbb2bLmSlideUp 0.25s ease-out;
+    color: #333 !important;
+}
+
+@keyframes nbb2bLmSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Panel header */
+.nbb2b-lm-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: inherit;
+    border-bottom: 1px solid #eee;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333 !important;
+}
+
+.nbb2b-lm-close {
+    background: none !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 4px !important;
+    color: #999 !important;
+    border-radius: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: color 0.15s, background 0.15s !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    font-size: inherit !important;
+    line-height: 1 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+.nbb2b-lm-close:hover {
+    color: #333 !important;
+    background: #f0f0f0 !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+}
+
+/* Panel body / form area */
+.nbb2b-lm-panel-body {
+    padding: 16px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* ── Form fields ───────────────────────────────────────────── */
+.nbb2b-lm-field {
+    margin-bottom: 14px;
+}
+
+.nbb2b-lm-field:last-child {
+    margin-bottom: 0;
+}
+
+.nbb2b-lm-field label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #444 !important;
+}
+
+.nbb2b-lm-required {
+    color: #e53e3e;
+}
+
+.nbb2b-lm-field input[type="text"],
+.nbb2b-lm-field input[type="email"],
+.nbb2b-lm-field input[type="tel"],
+.nbb2b-lm-field textarea,
+.nbb2b-lm-field select {
+    width: 100% !important;
+    padding: 8px 10px !important;
+    border: 1px solid #d0d0d0 !important;
+    border-radius: 5px !important;
+    font-size: 13px !important;
+    font-family: inherit !important;
+    color: #333 !important;
+    background: #fff !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+    box-sizing: border-box !important;
+}
+
+.nbb2b-lm-field input:focus,
+.nbb2b-lm-field textarea:focus,
+.nbb2b-lm-field select:focus {
+    outline: none;
+    border-color: var(--cxb-primary-color, #0A7AFF);
+    box-shadow: 0 0 0 2px rgba(10, 122, 255, 0.15);
+}
+
+/* Message / Requirements textarea.
+
+   The shared rule above pins the colours and the box model but says nothing
+   about height, and height is the one thing themes reliably have an opinion
+   about: a rule as ordinary as `textarea { height: 150px }` — or a form
+   plugin's `min-height: 120px` — wins over `rows` and opens the panel with a
+   third of it taken by an empty box. So the whole vertical story is stated
+   here: height, min-height, max-height, and the line-height and padding that
+   decide what one line measures (without those the min-height below would be
+   guesswork).
+
+   The class is doubled so the selector is (0,3,1). That matters: a theme's
+   own `textarea { height: 150px !important }` is (0,0,1), and between two
+   !important author declarations the more specific one wins.
+
+   Growth is handled by assets/js/autogrow.js. It writes an inline height with
+   !important, which is the only thing that outranks the !important here.
+   max-height caps the growth and hands the overflow to the field's own
+   scrollbar, so a long message can never push the submit button out of the
+   panel. */
+.nbb2b-lm-field textarea.nbb2b-lm-textarea.nbb2b-lm-textarea {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 38px !important;
+    max-height: var(--nbb2b-ta-max, 160px) !important;
+    line-height: 1.45 !important;
+    padding: 8px 10px !important;
+    margin: 0 !important;
+    font-size: 13px !important;
+    font-family: inherit !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    vertical-align: top !important;
+    /* No !important: the rule below takes the handle away once the script is
+       actually running, and without the script dragging is the only way to
+       make a one-line field bigger. */
+    resize: vertical;
+}
+
+/* autogrow.js adds this to every field it manages. Dragging and auto-fitting
+   fight each other — a dragged height is undone by the next keystroke — so
+   the handle goes away only once something else is doing the resizing. */
+.nbb2b-lm-field textarea.nbb2b-ta-auto.nbb2b-ta-auto {
+    resize: none !important;
+}
+
+/* Checkbox group */
+.nbb2b-lm-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+}
+
+.nbb2b-lm-checkbox-label {
+    display: flex !important;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    color: #555 !important;
+    cursor: pointer;
+    margin-bottom: 0 !important;
+}
+
+.nbb2b-lm-checkbox-label input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+/* ── Submit button ─────────────────────────────────────────── */
+.nbb2b-lm-submit-wrap {
+    margin-top: 16px;
+    margin-bottom: 0 !important;
+}
+
+.nbb2b-lm-submit-btn {
+    display: block !important;
+    width: 100% !important;
+    padding: 10px 16px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    /* background-color & border-color set via inline dynamic CSS */
+    border: 2px solid !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s, border-color 0.2s, opacity 0.2s !important;
+    text-align: center !important;
+    line-height: 1.4 !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    min-height: 0 !important;
+    outline: none !important;
+    margin: 0 !important;
+}
+
+.nbb2b-lm-submit-btn:disabled {
+    opacity: 0.65 !important;
+    cursor: not-allowed !important;
+}
+
+/* ── Result message ────────────────────────────────────────── */
+.nbb2b-lm-message {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 5px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.nbb2b-lm-message--success {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.nbb2b-lm-message--error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* ── Quote basket summary (shown above form when items exist) ── */
+.nbb2b-qs {
+    background: #f0f7ff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+}
+
+/* ── Single product layout ── */
+.nbb2b-qs-single-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.nbb2b-qs-single-thumb {
+    flex-shrink: 0;
+    position: relative;
+    cursor: pointer;
+}
+.nbb2b-qs-single-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.nbb2b-qs-single-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.nbb2b-qs-single-qty-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 0 !important;
+}
+.nbb2b-qs-qty-input {
+    width: 80px !important;
+    padding: 4px 6px !important;
+    border: 1px solid #c0d0e0 !important;
+    border-radius: 4px !important;
+    font-size: 13px !important;
+    text-align: center !important;
+    color: #333 !important;
+    background: #fff !important;
+}
+.nbb2b-qs-qty-input:focus {
+    outline: none;
+    border-color: var(--cxb-primary-color, #0A7AFF) !important;
+    box-shadow: 0 0 0 2px rgba(10, 122, 255, 0.15);
+}
+
+/* ── Multi product header ── */
+.nbb2b-qs-multi-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.nbb2b-qs-multi-header .nbb2b-qs-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: #1a5276;
+    flex: 1;
+    min-width: 0;
+}
+.nbb2b-qs-input-qty-btn {
+    flex-shrink: 0;
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    background: var(--cxb-primary-color, #0A7AFF) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    white-space: nowrap;
+    line-height: 1.4 !important;
+    transition: opacity 0.15s !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    outline: none !important;
+    margin: 0 !important;
+}
+.nbb2b-qs-input-qty-btn:hover {
+    opacity: 0.85 !important;
+}
+
+/* ── Product table (expandable) ── */
+.nbb2b-qs-product-table {
+    margin-top: 10px;
+    padding-top: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.nbb2b-qs-table {
+    width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 12px;
+    border: none !important;
+}
+.nbb2b-qs-table th,
+.nbb2b-qs-table td {
+    border: none !important;
+}
+.nbb2b-qs-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    padding: 4px 6px 6px;
+}
+.nbb2b-qs-table th:nth-child(1) { width: 55%; }
+.nbb2b-qs-table th:nth-child(2) { width: 30%; }
+.nbb2b-qs-table th:nth-child(3) { width: 15%; }
+.nbb2b-qs-table td {
+    padding: 6px;
+    vertical-align: middle;
+    overflow: hidden;
+}
+.nbb2b-qs-table tbody tr:nth-child(even) {
+    background-color: #f5f7fa;
+}
+.nbb2b-qs-table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+.nbb2b-qs-table-product {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+.nbb2b-qs-table-product span {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: #333;
+}
+.nbb2b-qs-table-img {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid #e0e0e0;
+    flex-shrink: 0;
+}
+.nbb2b-qs-table-qty {
+    width: 30%;
+}
+.nbb2b-qs-table-qty .nbb2b-qs-qty-input {
+    width: 72px !important;
+    padding: 3px 4px !important;
+    font-size: 12px !important;
+}
+.nbb2b-qs-table-del {
+    width: 15%;
+    text-align: center;
+}
+.nbb2b-qs-table-remove {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #999;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: color 0.15s, background 0.15s;
+}
+.nbb2b-qs-table-remove:hover {
+    color: #fff;
+    background: rgba(220, 38, 38, 0.85);
+}
+.nbb2b-qs-done-btn {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 8px !important;
+    margin-bottom: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 6px 0 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    font-family: inherit !important;
+    color: #555 !important;
+    background: #e8f0f8 !important;
+    background-image: none !important;
+    border: 1px solid #d0e3f7 !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    text-align: center !important;
+    transition: background 0.15s !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    min-width: 0 !important;
+    outline: none !important;
+    line-height: 1.4 !important;
+    float: none !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+}
+.nbb2b-qs-done-btn:hover {
+    background: #d8e8f5 !important;
+}
+.nbb2b-qs-count {
+    font-weight: 700;
+}
+.nbb2b-qs-thumbs {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow: visible;
+    padding: 4px 4px 0;
+}
+.nbb2b-qs-thumb-wrap {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 50px;
+    position: relative;
+}
+.nbb2b-qs-thumb-wrap.nbb2b-qs-deletable {
+    cursor: pointer;
+}
+.nbb2b-qs-del {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    line-height: 14px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.50);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    pointer-events: none;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+.nbb2b-qs-thumb-wrap:hover .nbb2b-qs-del {
+    opacity: 1;
+    pointer-events: auto;
+}
+.nbb2b-qs-del:hover {
+    background: rgba(220, 38, 38, 0.85);
+}
+/* On touch devices show the button by default (no hover) */
+@media (hover: none) {
+    .nbb2b-qs-del {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+.nbb2b-qs-thumb {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    background: #f9f9f9;
+    flex-shrink: 0;
+    display: block;
+}
+.nbb2b-qs-thumb-empty {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    border: 1px dashed #ccc;
+    background: #f0f0f0;
+    flex-shrink: 0;
+}
+.nbb2b-qs-qty {
+    font-size: 10px;
+    color: #1a5276;
+    font-weight: 600;
+    margin-top: 2px;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+.nbb2b-qs-more {
+    font-size: 18px;
+    font-weight: 700;
+    color: #888;
+    flex-shrink: 0;
+    padding: 0 4px;
+    line-height: 50px;
+}
+
+/* ── Elementor form integration ─────────────────────────────── */
+.nbb2b-lm-elementor-form {
+    /* Let Elementor's own styles control the form layout.
+       Constrain width so nothing overflows the panel. */
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Elementor forms sometimes use wide padding — tighten inside the popup */
+.nbb2b-lm-elementor-form .elementor-form {
+    padding: 0 !important;
+}
+
+.nbb2b-lm-elementor-form .elementor-widget-container {
+    padding: 0 !important;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 420px) {
+    .nbb2b-lm-panel {
+        width: calc(100vw - 16px);
+        right: 8px;
+    }
+}
+
+/* ── reCAPTCHA in floating panel ──────────────────────────── */
+.nbb2b-lm-recaptcha-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+/* Scale down v2 widget on narrow screens to fit the panel */
+@media (max-width: 420px) {
+    .nbb2b-lm-recaptcha-wrap .g-recaptcha {
+        transform: scale(0.88);
+        transform-origin: center top;
+    }
+}
+
+/* ── Cloudflare Turnstile in floating panel ─────────────────── */
+.nbb2b-lm-turnstile-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+/* Scale down Turnstile widget on narrow screens to fit the panel */
+@media (max-width: 420px) {
+    .nbb2b-lm-turnstile-wrap .cf-turnstile {
+        transform: scale(0.88);
+        transform-origin: center top;
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Center-screen popup variant
+   ----------------------------------------------------------------
+   Activated when Settings → Inquiry → Inquiry Flow =
+   "open Leave a Message popup" AND Popup Position = "Center screen
+   popup" (option cxb_b2b_lm_popup_position = 'center').
+
+   The collapsed launcher bar stays anchored in the bottom-right
+   corner exactly as in the default variant — only the OPEN panel is
+   moved to the center of the viewport, and its form switches to the
+   two-column layout used on the Quote Request page.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Modal root.
+
+   leave-message.js appends this as the last child of <body> and moves the
+   backdrop and the panel into it. The long note in that file explains why;
+   the short version is that the backdrop is printed as a sibling of the
+   widget while the panel is printed inside it, so every rule that hides the
+   widget — mobile-menu.css at ≤768px, the Elementor preview, theme rules
+   aimed at floating widgets — used to hide the popup and leave the blurred
+   backdrop on screen by itself.
+
+   It carries .nbb2b-lm-widget--center so the rules below keep matching, and
+   deliberately not .nbb2b-lm-widget, which is the class those rules target.
+   No box of its own: both children are position:fixed. */
+.nbb2b-lm-modal-root {
+    position: static;
+}
+
+/* Containing-block guard, switched on by the script only while the modal is
+   open.
+
+   position:fixed means "relative to the viewport" only while no ancestor has
+   a transform, filter, perspective, contain or will-change. Themes and chat
+   scripts (Tidio, Intercom, and friends) set those on <html> / <body> as a
+   matter of course, and the panel then centres itself on that element instead
+   — usually far below the fold, which reads as "the background went blurry
+   but no popup appeared". frontend.css already neutralises this, but it only
+   loads on plugin pages while this widget renders on every page.
+
+   Stylesheet !important outranks the inline styles those scripts set, and
+   scoping it to the open state leaves page-transition transforms alone the
+   rest of the time. Note that overflow is deliberately absent: clipping is
+   not what breaks fixed positioning, and touching it here would break
+   scrolling elsewhere. */
+html.nbb2b-lm-modal-open,
+body.nbb2b-lm-modal-open {
+    transform: none !important;
+    perspective: none !important;
+    filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    will-change: auto !important;
+    contain: none !important;
+    container-type: normal !important;
+}
+
+/* Applied by the script's verification pass when the panel is open but
+   computes to hidden, i.e. some other stylesheet is hiding it with
+   !important. Removed before every open and close, so the fade animations
+   are untouched in the normal case. */
+.nbb2b-lm-panel.nbb2b-lm-panel--force {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Dim + blurred backdrop behind the centered popup.
+   
+   Scope note: this element is only printed when Popup Position = "Center
+   screen popup" (see the `if ( $is_center )` guard in render_leave_message_
+   widget()). The bottom-right popup has no overlay at all, so nothing here
+   can reach it — it keeps its original look.
+   
+   backdrop-filter blurs whatever is painted BEHIND the overlay. The panel is
+   painted above it (widget z-index 999999 vs overlay 999998), so the form
+   itself stays perfectly sharp.
+   
+   The dim layer is lightened from 0.5 to 0.42 because blur already separates
+   the modal from the page; keeping 0.5 on top of the blur made the page
+   behind read as a flat grey slab. Browsers without backdrop-filter get the
+   0.55 fallback in the @supports block below, so the modal keeps enough
+   contrast there. */
+.nbb2b-lm-overlay {
+    position: fixed;
+    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.42);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+    backdrop-filter: blur(6px) saturate(120%);
+    z-index: 999998; /* just below the widget (999999) */
+    animation: nbb2bLmOverlayFade 0.2s ease-out;
+}
+
+/* No backdrop-filter support (older Firefox with the flag off, some in-app
+   webviews): fall back to a heavier dim so the modal still separates. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .nbb2b-lm-overlay {
+        background: rgba(15, 23, 42, 0.55);
+    }
+}
+
+/* Blur is a compositing effect and can be expensive on low-end devices;
+   honour the reduced-motion preference by dropping to a plain dim. */
+@media (prefers-reduced-motion: reduce) {
+    .nbb2b-lm-overlay {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        background: rgba(15, 23, 42, 0.55);
+        animation: none;
+    }
+}
+
+@keyframes nbb2bLmOverlayFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* CRITICAL: the default widget sets `transform: translateZ(0)` /
+   `will-change: transform`, which makes it a containing block for any
+   position:fixed descendant. In center mode the panel is position:fixed
+   and must resolve against the VIEWPORT, so we remove those properties
+   on the container. The launcher bar is a normal in-flow child pinned by
+   the container's own fixed positioning, so it is unaffected. */
+.nbb2b-lm-widget--center {
+    -webkit-transform: none;
+    transform: none;
+    will-change: auto;
+    -webkit-backface-visibility: visible;
+    backface-visibility: visible;
+}
+
+/* When the centered panel is open, the launcher bar is hidden so it
+   doesn't float over the modal. (Handled together with the existing
+   .nbb2b-lm-bar--open rule, but kept explicit for clarity.) */
+.nbb2b-lm-widget--center .nbb2b-lm-bar.nbb2b-lm-bar--open {
+    display: none;
+}
+
+/* Center the open panel in the viewport. The slide-up keyframe used by
+   the default variant is overridden so the modal simply fades in. */
+.nbb2b-lm-widget--center .nbb2b-lm-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+    width: 660px;
+    max-width: calc(100vw - 40px);
+    max-height: 90vh;
+    border-radius: 10px; /* fully rounded, unlike the docked bottom-right panel */
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+    animation: nbb2bLmCenterIn 0.22s ease-out;
+    z-index: 999999;
+}
+
+@keyframes nbb2bLmCenterIn {
+    from {
+        opacity: 0;
+        -webkit-transform: translate(-50%, -48%) scale(0.98);
+        transform: translate(-50%, -48%) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        -webkit-transform: translate(-50%, -50%) scale(1);
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* The body scrolls inside the centered modal; cap it relative to the
+   viewport (leave room for the header). */
+.nbb2b-lm-widget--center .nbb2b-lm-panel-body {
+    max-height: calc(90vh - 52px);
+    overflow-y: auto;
+}
+
+/* ── Two-column form layout (mirrors the Quote Request page) ──────
+   Matches .cxb-b2b-quote-request-form-row from assets/css/quote.css:
+   one column by default, two equal columns at >=768px, and full-width
+   cells that span the whole row. */
+.nbb2b-lm-form--two-col .nbb2b-lm-form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.nbb2b-lm-form--two-col .nbb2b-lm-form-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Each field cell inside a row. Reset the default vertical spacing —
+   the row's grid gap handles spacing instead. */
+.nbb2b-lm-form--two-col .nbb2b-lm-form-row .nbb2b-lm-field {
+    margin-bottom: 0;
+    min-width: 0; /* allow inputs to shrink within the grid track */
+}
+
+/* Full-width cell spans both columns (Message textarea, lone odd field,
+   checkbox rows). */
+.nbb2b-lm-form--two-col .nbb2b-lm-field--full {
+    grid-column: 1 / -1;
+}
+
+/* Two equal columns on wider screens — same breakpoint as the Quote
+   Request page. Rows that contain a single (full-width) field stay in
+   one column. */
+@media (min-width: 768px) {
+    .nbb2b-lm-form--two-col .nbb2b-lm-form-row:not(:has(.nbb2b-lm-field--full)) {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* The centered popup is wider and its body scrolls on its own, so the message
+   field can grow further before it has to start scrolling inside itself. Only
+   the ceiling moves: the field still opens at one line, the same as everywhere
+   else. (This used to set min-height: 90px, which is what made the centered
+   popup open with the tallest empty box of the three.) */
+.nbb2b-lm-widget--center .nbb2b-lm-field--full textarea.nbb2b-lm-textarea {
+    --nbb2b-ta-max: 240px;
+}
+
+/* ── Center popup: responsive ────────────────────────────────────
+   On phones the centered modal becomes near-full-width and the form
+   collapses back to a single column (the >=768px rule simply doesn't
+   apply). */
+@media (max-width: 767px) {
+    .nbb2b-lm-widget--center .nbb2b-lm-panel {
+        width: calc(100vw - 24px);
+        max-width: calc(100vw - 24px);
+    }
+}
+
+/* Fallback for browsers without :has() support — keep the form usable
+   by leaving it single-column (no broken two-column rendering). The
+   modern path above upgrades to two columns where :has() is available. */
+@supports not (selector(:has(*))) {
+    .nbb2b-lm-form--two-col .nbb2b-lm-form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Center popup — quote-list product thumbnails
+   ----------------------------------------------------------------
+   In the center-screen popup the quote summary is wider and shows as
+   many product thumbnails as fit on ONE row; overflow is hidden by
+   leave-message.js (which adds .nbb2b-qs-thumb-wrap--hidden and a
+   "+N" badge). The default bottom-right popup is untouched and keeps
+   its original max-5 thumbnails behaviour.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Widen the quote summary so it spans the full width of the centered
+   panel body and the thumbnail row has room to grow. */
+.nbb2b-lm-widget--center .nbb2b-qs {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Single-row thumbnail strip: lay thumbnails out left-to-right and clip
+   anything beyond the available width. JS hides the overflow items, but
+   the clip is a safety net during (re)layout so a half-measured thumb
+   never spills outside the row.
+
+   Alignment: the wraps must TOP-align so every product thumbnail sits on
+   the same horizontal line. A previous `align-items: center` caused
+   thumbnails to drift vertically because wraps that show a QTY badge are
+   taller than those without one — centering then pushed the badge-less
+   thumbnails downward. `flex-start` keeps all images on one baseline; the
+   QTY badge simply extends below it. */
+.nbb2b-lm-widget--center .nbb2b-qs-thumbs {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: flex-start;
+}
+
+/* Reserve a fixed slot for the QTY badge under every thumbnail so each
+   wrap has the SAME height whether or not a badge is shown. This keeps the
+   row height stable and prevents any vertical shift when QTY > 1. The
+   badge text is centered within its reserved slot. */
+.nbb2b-lm-widget--center .nbb2b-qs-thumb-wrap {
+    align-self: flex-start;
+}
+.nbb2b-lm-widget--center .nbb2b-qs-thumb-wrap .nbb2b-qs-qty {
+    display: block;
+    width: 100%;
+    height: 14px;
+    margin-top: 2px;
+    text-align: center;
+    overflow: hidden;
+}
+
+/* Overflow thumbnails hidden by the fit-to-row logic. */
+.nbb2b-lm-widget--center .nbb2b-qs-thumb-wrap--hidden {
+    display: none !important;
+}
+
+/* "+N" badge shown at the end of the row when some thumbnails are
+   hidden. Mirrors the thumbnail height so the row stays aligned. */
+.nbb2b-lm-widget--center .nbb2b-qs-more-count {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 50px;
+    padding: 0 8px;
+    margin-left: 2px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a5276;
+    background: #e1ecf7;
+    border: 1px solid #c5d8ec;
+    border-radius: 4px;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
