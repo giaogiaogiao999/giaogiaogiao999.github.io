@@ -16,18 +16,31 @@
   }
 
   async function saveProducts(products) {
-    await request({ method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products, updatedAt: new Date().toISOString() }) });
+    await request({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products, updatedAt: new Date().toISOString() }) });
     return true;
   }
 
   async function uploadImage(file) {
-    return new Promise((resolve, reject) => {
+    const source = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = reject;
+      element.src = source;
+    });
+    const scale = Math.min(1, 420 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.58);
   }
 
   window.LumosyCloud = { enabled, getProducts, saveProducts, uploadImage };
 })();
+
