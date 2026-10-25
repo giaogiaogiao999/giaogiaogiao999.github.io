@@ -172,3 +172,11 @@ button, input, select { font: inherit; }
 }
 
 html:not([data-auth-ready='true']) .portal-main { pointer-events: none; opacity: .72; cursor: progress; }
+
+.inquiry-row td { vertical-align: top; padding-top: 18px; padding-bottom: 18px; }
+.inquiry-row td > strong { display: block; margin-bottom: 5px; color: #17364d; }
+.inquiry-row td > small { display: block; margin-top: 4px; color: #708391; line-height: 1.45; }
+.inquiry-details { margin-top: 10px; }
+.inquiry-details summary { width: max-content; color: #078cca; font-size: 12px; font-weight: 700; cursor: pointer; }
+.inquiry-details p { max-width: 440px; margin: 8px 0 0; padding: 10px 12px; border-radius: 6px; background: #f3f7f9; color: #435f72; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+.inquiry-delete { display: block; margin-top: 9px; }

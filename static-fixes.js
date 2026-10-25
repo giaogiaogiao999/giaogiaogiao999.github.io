@@ -358,6 +358,52 @@
     toast(copy.added);
   }
 
+  function buildQuoteExperience() {
+    const root = document.getElementById('cxb-b2b-quote-request-page');
+    if (!root || root.dataset.enhanced === 'true') return;
+    root.dataset.enhanced = 'true';
+    const text = isZh ? {
+      eyebrow: '产品询价', title: '获取专属报价', lead: '确认产品和数量，留下联系方式，我们会尽快回复。',
+      step1: '选择产品', step2: '填写需求', step3: '等待回复', picture: '产品', product: '产品名称', qty: '数量', remove: '删除',
+      formTitle: '联系信息', formLead: '带 * 的项目为必填项', company: '公司名称', companyPh: '请输入公司名称',
+      email: '邮箱地址', emailPh: '请输入常用邮箱', phone: '电话 / WhatsApp', phonePh: '请输入联系电话',
+      country: '国家 / 地区', countryPh: '请输入国家或地区', message: '需求说明', messagePh: '请填写规格、颜色、数量或其他要求',
+      submit: '提交询价', shopping: '继续选购', empty: '询价清单还是空的', emptyLead: '请先从产品页面选择需要询价的商品。', browse: '浏览产品', secure: '询价信息会直接发送到管理员后台',
+      successTitle: '询价提交成功', successLead: '管理员已收到您的需求，我们会尽快与您联系。', again: '继续浏览产品', ref: '询价编号'
+    } : {
+      eyebrow: 'PRODUCT INQUIRY', title: 'Request a tailored quote', lead: 'Review the products and quantities, then tell us how to reach you.',
+      step1: 'Select products', step2: 'Share requirements', step3: 'Get a response', picture: 'Product', product: 'Product name', qty: 'Quantity', remove: 'Remove',
+      formTitle: 'Contact details', formLead: 'Fields marked * are required', company: 'Company name', companyPh: 'Enter company name',
+      email: 'Email address', emailPh: 'Enter your email address', phone: 'Phone / WhatsApp', phonePh: 'Enter phone or WhatsApp',
+      country: 'Country / Region', countryPh: 'Enter country or region', message: 'Requirements', messagePh: 'Tell us the size, finish, quantity, or other requirements',
+      submit: 'Submit inquiry', shopping: 'Continue shopping', empty: 'Your quote list is empty', emptyLead: 'Choose products first and they will appear here.', browse: 'Browse products', secure: 'Your inquiry is sent directly to the administrator',
+      successTitle: 'Inquiry submitted', successLead: 'The administrator has received your request. We will contact you soon.', again: 'Browse more products', ref: 'Reference'
+    };
+    root.innerHTML = `<div class="quote-shell">
+      <header class="quote-hero"><span>${text.eyebrow}</span><h1>${text.title}</h1><p>${text.lead}</p>
+        <ol class="quote-steps"><li class="is-active"><b>1</b>${text.step1}</li><li><b>2</b>${text.step2}</li><li><b>3</b>${text.step3}</li></ol>
+      </header>
+      <div class="cxb-b2b-quote-request-empty quote-empty"><div class="quote-empty__icon">＋</div><h2>${text.empty}</h2><p>${text.emptyLead}</p><a href="${isZh ? '/zh/products/' : '/products/'}" class="quote-button quote-button--primary">${text.browse}</a></div>
+      <div class="cxb-b2b-quote-request-content quote-workspace" style="display:none">
+        <section class="quote-card quote-products"><div class="quote-card__head"><div><small>01</small><h2>${text.step1}</h2></div><a href="${isZh ? '/zh/products/' : '/products/'}">${text.shopping} →</a></div>
+          <div class="cxb-b2b-quote-request-table quote-table"><div class="cxb-b2b-quote-request-table-header"><div class="product-picture">${text.picture}</div><div class="product-name">${text.product}</div><div class="product-quantity">${text.qty}</div><div class="product-actions">${text.remove}</div></div></div>
+        </section>
+        <section class="quote-card quote-form-card"><div class="quote-card__head"><div><small>02</small><h2>${text.formTitle}</h2><p>${text.formLead}</p></div></div>
+          <form class="cxb-b2b-quote-request-form-content quote-form" novalidate>
+            <div class="quote-field"><label>${text.company} *</label><input name="company_name" type="text" required autocomplete="organization" placeholder="${text.companyPh}"></div>
+            <div class="quote-field"><label>${text.email} *</label><input name="email" type="email" required autocomplete="email" placeholder="${text.emailPh}"></div>
+            <div class="quote-field"><label>${text.phone}</label><input name="phone" type="tel" autocomplete="tel" placeholder="${text.phonePh}"></div>
+            <div class="quote-field"><label>${text.country}</label><input name="country" type="text" autocomplete="country-name" placeholder="${text.countryPh}"></div>
+            <div class="quote-field quote-field--wide"><label>${text.message}</label><textarea name="message" rows="5" placeholder="${text.messagePh}"></textarea></div>
+            <div class="quote-submit-row"><button type="submit" class="quote-button quote-button--primary" data-inquiry-submit><span>${text.submit}</span></button><small>✓ ${text.secure}</small></div>
+          </form>
+        </section>
+      </div>
+      <section class="quote-success" data-quote-success hidden><div class="quote-success__check">✓</div><h2>${text.successTitle}</h2><p>${text.successLead}</p><strong data-quote-reference></strong><a href="${isZh ? '/zh/products/' : '/products/'}" class="quote-button quote-button--primary">${text.again}</a></section>
+    </div>`;
+    root.quoteText = text;
+  }
+
   function renderQuotePage() {
     const table = document.querySelector('.cxb-b2b-quote-request-table');
     if (!table) return;
@@ -366,12 +412,12 @@
     const content = document.querySelector('.cxb-b2b-quote-request-content');
     table.querySelectorAll('.static-quote-row').forEach((row) => row.remove());
     if (!items.length) {
-      if (empty) empty.style.display = '';
-      if (content) content.style.display = 'none';
+      if (empty) { empty.hidden = false; empty.style.display = ''; }
+      if (content) { content.hidden = true; content.style.display = ''; }
       return;
     }
-    if (empty) empty.style.display = 'none';
-    if (content) content.style.display = '';
+    if (empty) { empty.hidden = true; empty.style.display = ''; }
+    if (content) { content.hidden = false; content.style.display = ''; }
     for (const item of items) {
       const row = document.createElement('div');
       row.className = 'cxb-b2b-quote-request-table-row static-quote-row';
@@ -390,17 +436,27 @@
   }
 
   async function formMailto(form) {
+    const items = readQuote();
+    if (!items.length) {
+      toast(isZh ? '请先添加需要询价的产品。' : 'Please add at least one product before submitting.');
+      renderQuotePage();
+      return;
+    }
     if (!form.checkValidity()) {
       form.reportValidity();
       return;
     }
+    const submit = form.querySelector('[data-inquiry-submit],button[type="submit"]');
+    const submitLabel = submit?.querySelector('span') || submit;
+    const originalLabel = submitLabel?.textContent;
+    if (submit) submit.disabled = true;
+    if (submitLabel) submitLabel.textContent = isZh ? '正在提交…' : 'Submitting…';
     const data = new FormData(form);
     const lines = [];
     for (const [key, value] of data.entries()) {
       if (value instanceof File || !String(value).trim() || key.includes('nonce') || key.startsWith('_')) continue;
       lines.push(`${key.replaceAll('_', ' ')}: ${String(value).trim()}`);
     }
-    const items = readQuote();
     if (items.length) {
       lines.push('', isZh ? '询价产品：' : 'Products:');
       for (const item of items) lines.push(`- ${item.title} × ${Number(item.qty) || 1}`);
@@ -414,26 +470,46 @@
     if (window.LumosyCloud?.enabled) {
       try { inquiries = await window.LumosyCloud.getInquiries(); } catch (error) { console.warn('Could not refresh inquiries before submit.', error); }
     }
-    inquiries.unshift({
+    const inquiry = {
       id: `INQ-${Date.now().toString().slice(-8)}`,
       userId: session?.userId || null,
-      customer: session?.name || fields.name || fields.your_name || fields.full_name || 'Guest',
+      customer: session?.name || fields.company_name || fields.name || fields.your_name || fields.full_name || 'Guest',
       email: session?.email || fields.email || fields.your_email || '',
+      phone: fields.phone || '',
+      country: fields.country || '',
+      message: fields.message || '',
       fields,
       items: items.map((item) => ({ ...item })),
       status: 'pending',
-      createdAt: new Date().toISOString()
-    });
-    saveStore(INQUIRIES_KEY, inquiries);
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    inquiries.unshift(inquiry);
     try {
-      if (window.LumosyCloud?.enabled) await window.LumosyCloud.saveInquiries(inquiries);
+      if (!window.LumosyCloud?.enabled) throw new Error('Cloud inquiry service is unavailable.');
+      inquiries = window.LumosyCloud.appendInquiry
+        ? await window.LumosyCloud.appendInquiry(inquiry)
+        : inquiries;
+      if (!window.LumosyCloud.appendInquiry) await window.LumosyCloud.saveInquiries(inquiries);
+      saveStore(INQUIRIES_KEY, inquiries);
       saveQuote([]);
-      renderQuotePage();
       form.reset();
-      toast(isZh ? '询价已提交，管理员后台已收到。' : 'Inquiry submitted. The administrator has received it.');
+      const workspace = document.querySelector('.quote-workspace');
+      const success = document.querySelector('[data-quote-success]');
+      if (workspace) workspace.hidden = true;
+      if (success) {
+        success.hidden = false;
+        const reference = success.querySelector('[data-quote-reference]');
+        const refLabel = document.getElementById('cxb-b2b-quote-request-page')?.quoteText?.ref || 'Reference';
+        if (reference) reference.textContent = `${refLabel}: ${inquiry.id}`;
+        success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      updateQuoteBadges();
     } catch (error) {
       console.error('Inquiry sync failed.', error);
-      toast(isZh ? '询价提交失败，请稍后重试。' : 'Inquiry submission failed. Please try again.');
+      toast(isZh ? '询价提交失败，请检查网络后重试。' : 'Inquiry submission failed. Check your connection and try again.');
+      if (submit) submit.disabled = false;
+      if (submitLabel && originalLabel) submitLabel.textContent = originalLabel;
     }
   }
 
@@ -717,6 +793,7 @@
     formMailto(form);
   }, true);
 
+  buildQuoteExperience();
   updateQuoteBadges();
   renderQuotePage();
   setupAccountEntry();

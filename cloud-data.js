@@ -26,6 +26,23 @@
   async function saveProducts(products) { return saveList('products', products); }
   async function getInquiries() { return getList('inquiries'); }
   async function saveInquiries(inquiries) { return saveList('inquiries', inquiries); }
+  async function appendInquiry(inquiry) {
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const current = await getInquiries();
+        const merged = [inquiry, ...current.filter((item) => item.id !== inquiry.id)];
+        await saveInquiries(merged);
+        const verified = await getInquiries();
+        if (verified.some((item) => item.id === inquiry.id)) return verified;
+        throw new Error('Inquiry was not present after saving.');
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+    throw lastError || new Error('Inquiry could not be saved.');
+  }
   async function getCategories() { return getList('categories'); }
   async function saveCategories(categories) { return saveList('categories', categories); }
 
@@ -59,5 +76,5 @@
     return result;
   }
 
-  window.LumosyCloud = { enabled, getProducts, saveProducts, getInquiries, saveInquiries, getCategories, saveCategories, uploadImage };
+  window.LumosyCloud = { enabled, getProducts, saveProducts, getInquiries, saveInquiries, appendInquiry, getCategories, saveCategories, uploadImage };
 })();

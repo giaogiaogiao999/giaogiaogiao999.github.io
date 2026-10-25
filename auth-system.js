@@ -387,8 +387,19 @@
 
     const redrawInquiries = () => {
       const inquiries = read(INQUIRIES_KEY, []);
-      inquiriesBody.innerHTML = inquiries.length ? inquiries.map((item) => `
-        <tr><td><strong>${escapeHtml(item.id)}</strong><small>${new Date(item.createdAt).toLocaleString()}</small></td><td>${escapeHtml(item.customer || 'Guest')}<small>${escapeHtml(item.email || '')}</small></td><td>${Number(item.items?.length || 0)}<small>${escapeHtml((item.items || []).map((product) => `${product.title} × ${Number(product.qty) || 1}`).join('；'))}</small></td><td><select class="table-select" data-inquiry-status="${escapeHtml(item.id)}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>${copy.pending}</option><option value="processing" ${item.status === 'processing' ? 'selected' : ''}>${copy.processing}</option><option value="completed" ${item.status === 'completed' ? 'selected' : ''}>${copy.completed}</option></select></td></tr>`).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
+      inquiriesBody.innerHTML = inquiries.length ? inquiries.map((item) => {
+        const fields = item.fields || {};
+        const phone = item.phone || fields.phone || '';
+        const country = item.country || fields.country || '';
+        const message = item.message || fields.message || '';
+        const products = (item.items || []).map((product) => `${product.title} × ${Number(product.qty) || 1}`).join('；');
+        return `<tr class="inquiry-row">
+          <td><strong>${escapeHtml(item.id)}</strong><small>${new Date(item.createdAt).toLocaleString()}</small></td>
+          <td><strong>${escapeHtml(item.customer || 'Guest')}</strong><small>${escapeHtml(item.email || '')}</small>${phone ? `<small>${escapeHtml(phone)}</small>` : ''}${country ? `<small>${escapeHtml(country)}</small>` : ''}</td>
+          <td><strong>${Number(item.items?.length || 0)} ${isZh ? '件产品' : 'products'}</strong><small>${escapeHtml(products)}</small>${message ? `<details class="inquiry-details"><summary>${isZh ? '查看需求说明' : 'View requirements'}</summary><p>${escapeHtml(message)}</p></details>` : ''}</td>
+          <td><select class="table-select" data-inquiry-status="${escapeHtml(item.id)}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>${copy.pending}</option><option value="processing" ${item.status === 'processing' ? 'selected' : ''}>${copy.processing}</option><option value="completed" ${item.status === 'completed' ? 'selected' : ''}>${copy.completed}</option></select><button class="table-action is-danger inquiry-delete" type="button" data-delete-inquiry="${escapeHtml(item.id)}">${copy.remove}</button></td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
       updateStats();
     };
 
@@ -485,6 +496,16 @@
       inquiry.updatedAt = new Date().toISOString();
       await syncInquiries(inquiries);
       setNotice(copy.inquiryUpdated);
+    });
+
+    inquiriesBody.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-delete-inquiry]');
+      if (!button) return;
+      if (!confirm(isZh ? '确定删除这条询价吗？' : 'Delete this inquiry?')) return;
+      const inquiries = read(INQUIRIES_KEY, []).filter((item) => item.id !== button.dataset.deleteInquiry);
+      await syncInquiries(inquiries);
+      redrawInquiries();
+      setNotice(isZh ? '询价已删除。' : 'Inquiry deleted.');
     });
 
     categoryForm?.addEventListener('submit', async (event) => {
