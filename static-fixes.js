@@ -23,6 +23,7 @@
   const FAVORITES_KEY = 'lumosy_favorites_v1';
   const INQUIRIES_KEY = 'lumosy_inquiries_v1';
   const PRODUCTS_KEY = 'lumosy_products_v1';
+  const CATEGORIES_KEY = 'lumosy_categories_v1';
   const categorySlugByName = {
     'Aluminum Carpet Transition Strip': 'aluminum-carpet-transition-strip',
     'Aluminum Skirting Profile': 'aluminum-skirting-profile',
@@ -388,7 +389,7 @@
     }
   }
 
-  function formMailto(form) {
+  async function formMailto(form) {
     if (!form.checkValidity()) {
       form.reportValidity();
       return;
@@ -409,7 +410,10 @@
     for (const [key, value] of data.entries()) {
       if (!(value instanceof File) && String(value).trim() && !key.includes('nonce') && !key.startsWith('_')) fields[key] = String(value).trim();
     }
-    const inquiries = readStore(INQUIRIES_KEY, []);
+    let inquiries = readStore(INQUIRIES_KEY, []);
+    if (window.LumosyCloud?.enabled) {
+      try { inquiries = await window.LumosyCloud.getInquiries(); } catch (error) { console.warn('Could not refresh inquiries before submit.', error); }
+    }
     inquiries.unshift({
       id: `INQ-${Date.now().toString().slice(-8)}`,
       userId: session?.userId || null,
@@ -421,9 +425,16 @@
       createdAt: new Date().toISOString()
     });
     saveStore(INQUIRIES_KEY, inquiries);
-    toast(copy.sent);
-    const href = `mailto:edgetrim123@gmail.com?subject=${encodeURIComponent(copy.emailSubject)}&body=${encodeURIComponent(lines.join('\n'))}`;
-    setTimeout(() => { location.href = href; }, 150);
+    try {
+      if (window.LumosyCloud?.enabled) await window.LumosyCloud.saveInquiries(inquiries);
+      saveQuote([]);
+      renderQuotePage();
+      form.reset();
+      toast(isZh ? '询价已提交，管理员后台已收到。' : 'Inquiry submitted. The administrator has received it.');
+    } catch (error) {
+      console.error('Inquiry sync failed.', error);
+      toast(isZh ? '询价提交失败，请稍后重试。' : 'Inquiry submission failed. Please try again.');
+    }
   }
 
   async function searchProducts(form) {
@@ -495,12 +506,25 @@
     }
   }
 
+  async function ensureManagedCategories() {
+    if (window.LumosyCloud?.enabled) {
+      try {
+        const categories = await window.LumosyCloud.getCategories();
+        if (Array.isArray(categories) && categories.length) {
+          saveStore(CATEGORIES_KEY, categories);
+          return categories;
+        }
+      } catch (error) { console.warn('Cloud category loading failed.', error); }
+    }
+    const existing = readStore(CATEGORIES_KEY, []);
+    return Array.isArray(existing) ? existing : [];
+  }
+
   async function applyManagedProducts() {
-    const grid = document.querySelector('.reference-store-grid,.cxb-b2b-products-grid');
-    if (!grid) return;
-    const products = await ensureManagedProducts();
+    const grid = document.querySelector('.reference-store-grid,.cxb-b2b-products-grid') || document.createElement('div');
+    const [products, categories] = await Promise.all([ensureManagedProducts(), ensureManagedCategories()]);
     const categoryMatch = location.pathname.match(/\/product-category\/([^/]+)/);
-    const currentCategorySlug = categoryMatch?.[1] || '';
+    const currentCategorySlug = categoryMatch?.[1] || new URLSearchParams(location.search).get('category') || '';
     const productCategorySlug = (product) => product.categorySlug || categorySlugByName[product.category] || '';
     const belongsToCurrentCategory = (product) => !currentCategorySlug || productCategorySlug(product) === currentCategorySlug;
     const known = new Set();
@@ -541,6 +565,44 @@
     const currentCount = activeProducts.filter(belongsToCurrentCategory).length;
     const toolbarCount = document.querySelector('.cxb-b2b-archive-toolbar-count');
     if (toolbarCount) toolbarCount.innerHTML = `<strong>${currentCount}</strong> ${isZh ? '产品' : currentCount === 1 ? 'product' : 'products'}`;
+
+    const sidebarList = document.querySelector('.cxb-b2b-sidebar-category-list,.cxb-b2b-sidebar-categories');
+    if (sidebarList) categories.filter((category) => category.status !== 'inactive').forEach((category) => {
+      if (sidebarList.querySelector(`[data-cloud-category="${CSS.escape(category.slug)}"]`)) return;
+      const item = document.createElement('li');
+      item.className = 'cxb-b2b-sidebar-category-item amazon level-0';
+      const link = document.createElement('a');
+      link.className = 'cxb-b2b-sidebar-category-link';
+      link.dataset.cloudCategory = category.slug;
+      link.href = `${isZh ? '/zh' : ''}/products/?category=${encodeURIComponent(category.slug)}`;
+      const count = activeProducts.filter((product) => productCategorySlug(product) === category.slug).length;
+      link.innerHTML = `<span>${isZh && category.zh ? category.zh : category.name}</span><span class="category-count">${count}</span>`;
+      item.appendChild(link);
+      sidebarList.appendChild(item);
+    });
+
+    const categoryGrid = document.querySelector('.reference-category-grid');
+    if (categoryGrid) categories.filter((category) => category.status !== 'inactive' && category.source === 'custom').forEach((category) => {
+      if (categoryGrid.querySelector(`[data-cloud-category="${CSS.escape(category.slug)}"]`)) return;
+      const first = activeProducts.find((product) => productCategorySlug(product) === category.slug);
+      const card = document.createElement('article');
+      card.className = 'reference-category-card';
+      card.dataset.cloudCategory = category.slug;
+      const href = `${isZh ? '/zh' : ''}/products/?category=${encodeURIComponent(category.slug)}`;
+      card.innerHTML = `<a class="reference-category-card__image" href="${href}"><img loading="lazy" src="${first?.image || '/wp-content/uploads/2026/10/logo.png'}" alt=""></a><h3><a href="${href}">${isZh && category.zh ? category.zh : category.name}</a></h3><span>${activeProducts.filter((product) => productCategorySlug(product) === category.slug).length} ${isZh ? '个产品' : 'Products'}</span>`;
+      categoryGrid.appendChild(card);
+    });
+
+    const homeGrid = document.querySelector('.reference-product-grid');
+    if (homeGrid) products.filter((product) => product.source === 'custom' && product.status !== 'inactive' && product.homepage).forEach((product) => {
+      if (homeGrid.querySelector(`[data-managed-product-id="${CSS.escape(product.id)}"]`)) return;
+      const title = isZh && product.titleZh ? product.titleZh : product.title;
+      const card = document.createElement('article');
+      card.className = 'reference-product-card';
+      card.dataset.managedProductId = product.id;
+      card.innerHTML = `<a class="reference-product-card__image" href="${product.url}"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></a><h3><a href="${product.url}">${title}</a></h3><a class="reference-button" href="${product.url}">${isZh ? '了解更多' : 'More Info'}</a>`;
+      homeGrid.appendChild(card);
+    });
   }
 
   function setupFavorites() {

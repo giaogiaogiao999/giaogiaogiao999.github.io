@@ -7,6 +7,16 @@
   const INQUIRIES_KEY = 'lumosy_inquiries_v1';
   const FAVORITES_KEY = 'lumosy_favorites_v1';
   const PRODUCTS_KEY = 'lumosy_products_v1';
+  const CATEGORIES_KEY = 'lumosy_categories_v1';
+  const DEFAULT_CATEGORIES = [
+    ['Aluminum Carpet Transition Strip', '铝地毯过渡条', 'aluminum-carpet-transition-strip'],
+    ['Aluminum Skirting Profile', '铝制踢脚线型材', 'aluminum-skirting-profile'],
+    ['Aluminum Tile Edge Trim profile', '铝制瓷砖边缘装饰型材', 'aluminum-tile-edge-trim-profile'],
+    ['Cabinet Aluminum Handle', '橱柜铝制手柄', 'cabinet-aluminum-handle'],
+    ['LED Channel For Wall Panel', '墙面板LED通道', 'led-channel-for-wall-panel'],
+    ['Wall Panel Edge Trim Profile', '墙板边缘装饰线条', 'wall-panel-edge-trim-profile'],
+    ['Wall Panel Joint Profile', '墙板接缝剖面', 'wall-panel-joint-profile']
+  ].map(([name, zh, slug]) => ({ id: `category-${slug}`, name, zh, slug, status: 'active', source: 'static' }));
   const isZh = location.pathname === '/zh' || location.pathname.startsWith('/zh/');
   const page = document.body.dataset.page;
   const route = (name) => `${isZh ? '/zh' : ''}/${name ? `${name}/` : ''}`;
@@ -39,6 +49,7 @@
   };
   const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
   const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+  const slugify = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const makeId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -101,6 +112,41 @@
       const response = await fetch('/api/admin/products', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Lumosy-Admin': 'local-preview' }, body: JSON.stringify({ products }) });
       return response.ok;
     } catch { return false; }
+  }
+
+  async function ensureCategories() {
+    if (window.LumosyCloud?.enabled) {
+      try {
+        let categories = await window.LumosyCloud.getCategories();
+        if (!categories.length) { categories = DEFAULT_CATEGORIES; await window.LumosyCloud.saveCategories(categories); }
+        write(CATEGORIES_KEY, categories);
+        return categories;
+      } catch (error) { console.warn('Cloud category loading failed.', error); }
+    }
+    const saved = read(CATEGORIES_KEY, null);
+    const categories = Array.isArray(saved) && saved.length ? saved : DEFAULT_CATEGORIES;
+    write(CATEGORIES_KEY, categories);
+    return categories;
+  }
+
+  async function ensureInquiries() {
+    if (window.LumosyCloud?.enabled) {
+      try {
+        const inquiries = await window.LumosyCloud.getInquiries();
+        write(INQUIRIES_KEY, inquiries);
+        return inquiries;
+      } catch (error) { console.warn('Cloud inquiry loading failed.', error); }
+    }
+    return read(INQUIRIES_KEY, []);
+  }
+
+  async function syncInquiries(inquiries) {
+    write(INQUIRIES_KEY, inquiries);
+    if (window.LumosyCloud?.enabled) {
+      try { await window.LumosyCloud.saveInquiries(inquiries); return true; }
+      catch (error) { console.error('Cloud inquiry save failed.', error); return false; }
+    }
+    return true;
   }
 
   const statusLabel = (status) => copy[status] || status || copy.pending;
@@ -239,6 +285,8 @@
     const productsBody = document.querySelector('[data-products-table]');
     const inquiriesBody = document.querySelector('[data-inquiries-table]');
     const productForm = document.querySelector('[data-product-form]');
+    const categoriesBody = document.querySelector('[data-categories-table]');
+    const categoryForm = document.querySelector('[data-category-form]');
 
     const adminSections = Array.from(document.querySelectorAll('[data-admin-section]'));
     const adminHeading = document.querySelector('[data-admin-heading]');
@@ -323,16 +371,35 @@
       updateStats();
     };
 
+    const refreshCategorySelect = (selected = '') => {
+      if (!productForm?.elements.category) return;
+      const categories = read(CATEGORIES_KEY, DEFAULT_CATEGORIES).filter((category) => category.status !== 'inactive');
+      productForm.elements.category.innerHTML = categories.map((category) => `<option value="${escapeHtml(category.name)}" data-zh="${escapeHtml(category.zh || '')}" data-slug="${escapeHtml(category.slug)}">${escapeHtml(isZh && category.zh ? category.zh : category.name)}</option>`).join('');
+      if (selected) productForm.elements.category.value = selected;
+    };
+
+    const redrawCategories = () => {
+      if (!categoriesBody) return;
+      const categories = read(CATEGORIES_KEY, DEFAULT_CATEGORIES);
+      categoriesBody.innerHTML = categories.map((category) => `<tr><td><strong>${escapeHtml(category.name)}</strong><small>${escapeHtml(category.zh || '')}</small></td><td>${escapeHtml(category.slug)}</td><td><span class="status-badge status-${category.status || 'active'}">${category.status === 'inactive' ? copy.disabledLabel : copy.active}</span></td><td>${category.source === 'custom' ? `<button class="table-action is-danger" type="button" data-delete-category="${escapeHtml(category.id)}">${copy.remove}</button>` : '—'}</td></tr>`).join('');
+      refreshCategorySelect();
+    };
+
     const redrawInquiries = () => {
       const inquiries = read(INQUIRIES_KEY, []);
       inquiriesBody.innerHTML = inquiries.length ? inquiries.map((item) => `
-        <tr><td><strong>${escapeHtml(item.id)}</strong><small>${new Date(item.createdAt).toLocaleString()}</small></td><td>${escapeHtml(item.customer || 'Guest')}<small>${escapeHtml(item.email || '')}</small></td><td>${Number(item.items?.length || 0)}</td><td><select class="table-select" data-inquiry-status="${escapeHtml(item.id)}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>${copy.pending}</option><option value="processing" ${item.status === 'processing' ? 'selected' : ''}>${copy.processing}</option><option value="completed" ${item.status === 'completed' ? 'selected' : ''}>${copy.completed}</option></select></td></tr>`).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
+        <tr><td><strong>${escapeHtml(item.id)}</strong><small>${new Date(item.createdAt).toLocaleString()}</small></td><td>${escapeHtml(item.customer || 'Guest')}<small>${escapeHtml(item.email || '')}</small></td><td>${Number(item.items?.length || 0)}<small>${escapeHtml((item.items || []).map((product) => `${product.title} × ${Number(product.qty) || 1}`).join('；'))}</small></td><td><select class="table-select" data-inquiry-status="${escapeHtml(item.id)}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>${copy.pending}</option><option value="processing" ${item.status === 'processing' ? 'selected' : ''}>${copy.processing}</option><option value="completed" ${item.status === 'completed' ? 'selected' : ''}>${copy.completed}</option></select></td></tr>`).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
       updateStats();
     };
 
     redrawUsers();
+    redrawCategories();
     redrawProducts();
     redrawInquiries();
+    if (window.LumosyCloud?.enabled) setInterval(async () => {
+      await ensureInquiries();
+      redrawInquiries();
+    }, 15000);
 
     usersBody.addEventListener('click', (event) => {
       const button = event.target.closest('[data-toggle-user]');
@@ -355,9 +422,11 @@
       const product = products.find((item) => item.id === id);
       if (!product) return;
       if (edit) {
-        for (const field of ['id', 'title', 'titleZh', 'category', 'categoryZh', 'image', 'status']) {
+        refreshCategorySelect(product.category);
+        for (const field of ['id', 'title', 'titleZh', 'category', 'image', 'status']) {
           if (productForm.elements[field]) productForm.elements[field].value = product[field] || '';
         }
+        if (productForm.elements.homepage) productForm.elements.homepage.checked = Boolean(product.homepage);
         setProductImage(product.image || '');
         productForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -394,6 +463,7 @@
       record.categorySlug = categoryOption?.dataset.slug || '';
       record.image = String(data.get('image') || '').trim() || '/wp-content/uploads/2026/10/logo.png';
       record.status = String(data.get('status') || 'active');
+      record.homepage = data.get('homepage') === 'on';
       record.updatedAt = new Date().toISOString();
       if (!product) products.unshift(record);
       write(PRODUCTS_KEY, products);
@@ -405,7 +475,7 @@
       setNotice(copy.productSaved);
     });
 
-    inquiriesBody.addEventListener('change', (event) => {
+    inquiriesBody.addEventListener('change', async (event) => {
       const select = event.target.closest('[data-inquiry-status]');
       if (!select) return;
       const inquiries = read(INQUIRIES_KEY, []);
@@ -413,8 +483,38 @@
       if (!inquiry) return;
       inquiry.status = select.value;
       inquiry.updatedAt = new Date().toISOString();
-      write(INQUIRIES_KEY, inquiries);
+      await syncInquiries(inquiries);
       setNotice(copy.inquiryUpdated);
+    });
+
+    categoryForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(categoryForm);
+      const categories = read(CATEGORIES_KEY, DEFAULT_CATEGORIES);
+      const name = String(data.get('name') || '').trim();
+      const zh = String(data.get('zh') || '').trim();
+      const slug = slugify(data.get('slug') || name);
+      if (!name || !slug) return;
+      if (categories.some((category) => category.slug === slug || category.name.toLowerCase() === name.toLowerCase())) return setNotice(isZh ? '该分类已经存在。' : 'This category already exists.', 'error');
+      categories.push({ id: makeId('category'), name, zh, slug, status: 'active', source: 'custom', createdAt: new Date().toISOString() });
+      write(CATEGORIES_KEY, categories);
+      if (window.LumosyCloud?.enabled) await window.LumosyCloud.saveCategories(categories);
+      categoryForm.reset();
+      redrawCategories();
+      setNotice(isZh ? '分类已保存。' : 'Category saved.');
+    });
+
+    categoriesBody?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-delete-category]');
+      if (!button) return;
+      const products = read(PRODUCTS_KEY, []);
+      const categories = read(CATEGORIES_KEY, DEFAULT_CATEGORIES);
+      const target = categories.find((category) => category.id === button.dataset.deleteCategory);
+      if (!target || products.some((product) => product.categorySlug === target.slug)) return setNotice(isZh ? '该分类下仍有产品，不能删除。' : 'Move or delete products in this category first.', 'error');
+      const next = categories.filter((category) => category.id !== target.id);
+      write(CATEGORIES_KEY, next);
+      if (window.LumosyCloud?.enabled) await window.LumosyCloud.saveCategories(next);
+      redrawCategories();
     });
 
     document.querySelector('[data-admin-form]')?.addEventListener('submit', async (event) => {
@@ -438,7 +538,6 @@
 
   async function start() {
     await ensureAdministrator();
-    await ensureProducts();
     document.querySelectorAll('[data-logout]').forEach((button) => button.addEventListener('click', logout));
     document.querySelector('[data-login-form]')?.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -502,6 +601,7 @@
         handleRegistration(event.currentTarget);
       });
     }
+    await Promise.all([ensureProducts(), ensureCategories(), ensureInquiries()]);
     if (page === 'account') {
       const user = requireUser();
       if (user) renderAccount(user);
@@ -510,6 +610,7 @@
       const admin = requireUser('admin');
       if (admin) renderAdmin(admin);
     }
+    document.documentElement.dataset.authReady = 'true';
   }
 
   start();

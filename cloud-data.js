@@ -1,24 +1,33 @@
 (function () {
   'use strict';
   const config = window.LUMOSY_CLOUD_CONFIG || {};
-  const blobUrl = String(config.blobUrl || '');
-  const enabled = /^https:\/\//.test(blobUrl);
+  const productsUrl = String(config.blobUrl || '');
+  const enabled = /^https:\/\//.test(productsUrl);
+  const endpoint = (name) => productsUrl.replace(/\/products(?:\?.*)?$/, `/${name}`);
 
-  async function request(options = {}) {
-    const response = await fetch(blobUrl, { ...options, cache: 'no-store' });
+  async function request(name, options = {}) {
+    const response = await fetch(endpoint(name), { ...options, cache: 'no-store' });
+    if (response.status === 404) return {};
     if (!response.ok) throw new Error(`Cloud request failed: ${response.status}`);
     return response.json();
   }
 
-  async function getProducts() {
-    const data = await request();
-    return Array.isArray(data?.products) ? data.products : [];
+  async function getList(name) {
+    const data = await request(name);
+    return Array.isArray(data?.[name]) ? data[name] : [];
   }
 
-  async function saveProducts(products) {
-    await request({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products, updatedAt: new Date().toISOString() }) });
+  async function saveList(name, items) {
+    await request(name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [name]: items, updatedAt: new Date().toISOString() }) });
     return true;
   }
+
+  async function getProducts() { return getList('products'); }
+  async function saveProducts(products) { return saveList('products', products); }
+  async function getInquiries() { return getList('inquiries'); }
+  async function saveInquiries(inquiries) { return saveList('inquiries', inquiries); }
+  async function getCategories() { return getList('categories'); }
+  async function saveCategories(categories) { return saveList('categories', categories); }
 
   async function uploadImage(file) {
     const source = await new Promise((resolve, reject) => {
@@ -33,14 +42,22 @@
       element.onerror = reject;
       element.src = source;
     });
-    const scale = Math.min(1, 420 / Math.max(image.naturalWidth, image.naturalHeight));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.58);
+    let maxSide = 320;
+    let quality = 0.58;
+    let result = source;
+    while (maxSide >= 160) {
+      const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      result = canvas.toDataURL('image/jpeg', quality);
+      if (result.length < 18000) break;
+      maxSide -= 40;
+      quality = Math.max(0.38, quality - 0.05);
+    }
+    return result;
   }
 
-  window.LumosyCloud = { enabled, getProducts, saveProducts, uploadImage };
+  window.LumosyCloud = { enabled, getProducts, saveProducts, getInquiries, saveInquiries, getCategories, saveCategories, uploadImage };
 })();
-

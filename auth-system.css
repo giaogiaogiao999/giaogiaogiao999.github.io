@@ -170,3 +170,5 @@ button, input, select { font: inherit; }
   .portal-menu { grid-template-columns: 1fr 1fr; }
   .portal-card { padding: 18px; overflow-x: auto; }
 }
+
+html:not([data-auth-ready='true']) .portal-main { pointer-events: none; opacity: .72; cursor: progress; }
