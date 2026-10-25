@@ -30,7 +30,8 @@
     productSaved: '产品已保存。', productRemoved: '产品已删除。', favoriteRemoved: '已取消收藏。', userUpdated: '用户状态已更新。', inquiryUpdated: '询价状态已更新。',
     confirmDelete: '确定删除这个自定义产品吗？', invalidQq: '请输入5至12位数字QQ号。',
     codeRequired: '请先获取并输入6位邮箱验证码。', codeFailed: '验证码错误或已过期，请重新获取。', codeSendFailed: '验证码发送失败，请稍后重试。', codeSent: '验证码已生成，10分钟内有效。', localCode: '本地测试验证码',
-    imageUploading: '图片上传中……', imageUploaded: '图片上传成功', imageInvalid: '请选择 JPG、PNG、WEBP 或 GIF 图片（最大 8 MB）。', imageUploadFailed: '图片上传失败，请重试。'
+    imageUploading: '图片上传中……', imageUploaded: '图片上传成功', imageInvalid: '请选择 JPG、PNG、WEBP 或 GIF 图片（最大 8 MB）。', imageUploadFailed: '图片上传失败，请重试。',
+    syncFailed: '云端同步失败，请检查网络后重试。数据尚未保存。'
   } : {
     loginFailed: 'Incorrect email address or password.', disabled: 'This account has been disabled.',
     exists: 'An account already exists for this email.', mismatch: 'The passwords do not match.',
@@ -41,7 +42,8 @@
     productSaved: 'Product saved.', productRemoved: 'Product deleted.', favoriteRemoved: 'Favorite removed.', userUpdated: 'User status updated.', inquiryUpdated: 'Inquiry status updated.',
     confirmDelete: 'Delete this custom product?', invalidQq: 'Enter a valid QQ number containing 5 to 12 digits.',
     codeRequired: 'Request and enter the 6-digit email verification code.', codeFailed: 'The code is incorrect or expired. Request a new code.', codeSendFailed: 'Could not send the verification code. Try again.', codeSent: 'Verification code generated and valid for 10 minutes.', localCode: 'Local test code',
-    imageUploading: 'Uploading image…', imageUploaded: 'Image uploaded', imageInvalid: 'Choose a JPG, PNG, WEBP or GIF image up to 8 MB.', imageUploadFailed: 'Image upload failed. Try again.'
+    imageUploading: 'Uploading image…', imageUploaded: 'Image uploaded', imageInvalid: 'Choose a JPG, PNG, WEBP or GIF image up to 8 MB.', imageUploadFailed: 'Image upload failed. Try again.',
+    syncFailed: 'Cloud sync failed. Check your connection and try again. Nothing was saved.'
   };
 
   const read = (key, fallback) => {
@@ -141,11 +143,20 @@
   }
 
   async function syncInquiries(inquiries) {
-    write(INQUIRIES_KEY, inquiries);
     if (window.LumosyCloud?.enabled) {
-      try { await window.LumosyCloud.saveInquiries(inquiries); return true; }
+      try { await window.LumosyCloud.saveInquiries(inquiries); write(INQUIRIES_KEY, inquiries); return true; }
       catch (error) { console.error('Cloud inquiry save failed.', error); return false; }
     }
+    write(INQUIRIES_KEY, inquiries);
+    return true;
+  }
+
+  async function syncManagedCategories(categories) {
+    if (window.LumosyCloud?.enabled) {
+      try { await window.LumosyCloud.saveCategories(categories); write(CATEGORIES_KEY, categories); return true; }
+      catch (error) { console.error('Cloud category save failed.', error); return false; }
+    }
+    write(CATEGORIES_KEY, categories);
     return true;
   }
 
@@ -473,15 +484,19 @@
         productForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       if (toggle) {
+        const previousStatus = product.status;
         product.status = product.status === 'active' ? 'inactive' : 'active';
+        if (!await syncManagedProducts(products)) {
+          product.status = previousStatus;
+          return setNotice(copy.syncFailed, 'error');
+        }
         write(PRODUCTS_KEY, products);
-        await syncManagedProducts(products);
         redrawProducts();
       }
       if (remove && confirm(copy.confirmDelete)) {
         const nextProducts = products.filter((item) => item.id !== product.id);
+        if (!await syncManagedProducts(nextProducts)) return setNotice(copy.syncFailed, 'error');
         write(PRODUCTS_KEY, nextProducts);
-        await syncManagedProducts(nextProducts);
         redrawProducts();
         setNotice(copy.productRemoved);
       }
@@ -508,8 +523,8 @@
       record.homepage = data.get('homepage') === 'on';
       record.updatedAt = new Date().toISOString();
       if (!product) products.unshift(record);
+      if (!await syncManagedProducts(products)) return setNotice(copy.syncFailed, 'error');
       write(PRODUCTS_KEY, products);
-      await syncManagedProducts(products);
       productForm.reset();
       productForm.elements.id.value = '';
       setProductImage('');
@@ -525,7 +540,11 @@
       if (!inquiry) return;
       inquiry.status = select.value;
       inquiry.updatedAt = new Date().toISOString();
-      await syncInquiries(inquiries);
+      if (!await syncInquiries(inquiries)) {
+        await ensureInquiries();
+        redrawInquiries();
+        return setNotice(copy.syncFailed, 'error');
+      }
       setNotice(copy.inquiryUpdated);
     });
 
@@ -534,7 +553,7 @@
       if (!button) return;
       if (!confirm(isZh ? '确定删除这条询价吗？' : 'Delete this inquiry?')) return;
       const inquiries = read(INQUIRIES_KEY, []).filter((item) => item.id !== button.dataset.deleteInquiry);
-      await syncInquiries(inquiries);
+      if (!await syncInquiries(inquiries)) return setNotice(copy.syncFailed, 'error');
       redrawInquiries();
       setNotice(isZh ? '询价已删除。' : 'Inquiry deleted.');
     });
@@ -549,8 +568,7 @@
       if (!name || !slug) return;
       if (categories.some((category) => category.slug === slug || category.name.toLowerCase() === name.toLowerCase())) return setNotice(isZh ? '该分类已经存在。' : 'This category already exists.', 'error');
       categories.push({ id: makeId('category'), name, zh, slug, status: 'active', source: 'custom', createdAt: new Date().toISOString() });
-      write(CATEGORIES_KEY, categories);
-      if (window.LumosyCloud?.enabled) await window.LumosyCloud.saveCategories(categories);
+      if (!await syncManagedCategories(categories)) return setNotice(copy.syncFailed, 'error');
       categoryForm.reset();
       redrawCategories();
       setNotice(isZh ? '分类已保存。' : 'Category saved.');
@@ -564,8 +582,7 @@
       const target = categories.find((category) => category.id === button.dataset.deleteCategory);
       if (!target || products.some((product) => product.categorySlug === target.slug)) return setNotice(isZh ? '该分类下仍有产品，不能删除。' : 'Move or delete products in this category first.', 'error');
       const next = categories.filter((category) => category.id !== target.id);
-      write(CATEGORIES_KEY, next);
-      if (window.LumosyCloud?.enabled) await window.LumosyCloud.saveCategories(next);
+      if (!await syncManagedCategories(next)) return setNotice(copy.syncFailed, 'error');
       redrawCategories();
     });
 
