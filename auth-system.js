@@ -18,7 +18,9 @@
     noInquiry: '暂无询价记录。', noFavorite: '暂无收藏产品。', user: '普通用户', admin: '管理员', active: '正常', disabledLabel: '已停用',
     pending: '待处理', processing: '处理中', completed: '已完成', enable: '启用', disable: '停用', edit: '编辑', remove: '删除',
     productSaved: '产品已保存。', productRemoved: '产品已删除。', favoriteRemoved: '已取消收藏。', userUpdated: '用户状态已更新。', inquiryUpdated: '询价状态已更新。',
-    confirmDelete: '确定删除这个自定义产品吗？', invalidQq: '请输入5至12位数字QQ号。'
+    confirmDelete: '确定删除这个自定义产品吗？', invalidQq: '请输入5至12位数字QQ号。',
+    codeRequired: '请先获取并输入6位邮箱验证码。', codeFailed: '验证码错误或已过期，请重新获取。', codeSendFailed: '验证码发送失败，请稍后重试。', codeSent: '验证码已生成，10分钟内有效。', localCode: '本地测试验证码',
+    imageUploading: '图片上传中……', imageUploaded: '图片上传成功', imageInvalid: '请选择 JPG、PNG、WEBP 或 GIF 图片（最大 8 MB）。', imageUploadFailed: '图片上传失败，请重试。'
   } : {
     loginFailed: 'Incorrect email address or password.', disabled: 'This account has been disabled.',
     exists: 'An account already exists for this email.', mismatch: 'The passwords do not match.',
@@ -27,7 +29,9 @@
     noInquiry: 'No inquiries yet.', noFavorite: 'No saved products yet.', user: 'User', admin: 'Administrator', active: 'Active', disabledLabel: 'Disabled',
     pending: 'Pending', processing: 'Processing', completed: 'Completed', enable: 'Enable', disable: 'Disable', edit: 'Edit', remove: 'Delete',
     productSaved: 'Product saved.', productRemoved: 'Product deleted.', favoriteRemoved: 'Favorite removed.', userUpdated: 'User status updated.', inquiryUpdated: 'Inquiry status updated.',
-    confirmDelete: 'Delete this custom product?', invalidQq: 'Enter a valid QQ number containing 5 to 12 digits.'
+    confirmDelete: 'Delete this custom product?', invalidQq: 'Enter a valid QQ number containing 5 to 12 digits.',
+    codeRequired: 'Request and enter the 6-digit email verification code.', codeFailed: 'The code is incorrect or expired. Request a new code.', codeSendFailed: 'Could not send the verification code. Try again.', codeSent: 'Verification code generated and valid for 10 minutes.', localCode: 'Local test code',
+    imageUploading: 'Uploading image…', imageUploaded: 'Image uploaded', imageInvalid: 'Choose a JPG, PNG, WEBP or GIF image up to 8 MB.', imageUploadFailed: 'Image upload failed. Try again.'
   };
 
   const read = (key, fallback) => {
@@ -57,15 +61,46 @@
   }
 
   async function ensureProducts() {
-    const saved = read(PRODUCTS_KEY, null);
-    if (Array.isArray(saved) && saved.length) return saved;
+    if (window.LumosyCloud?.enabled) {
+      try {
+        let products = await window.LumosyCloud.getProducts();
+        if (!products.length) {
+          const seedResponse = await fetch('/auth-products.json', { cache: 'no-store' });
+          products = seedResponse.ok ? await seedResponse.json() : [];
+          if (products.length) await window.LumosyCloud.saveProducts(products);
+        }
+        write(PRODUCTS_KEY, products);
+        return products;
+      } catch (error) { console.warn('Cloud product loading failed; using local fallback.', error); }
+    }
     try {
-      const response = await fetch('/auth-products.json', { cache: 'no-store' });
-      if (!response.ok) return [];
-      const products = await response.json();
+      const response = await fetch('/api/products', { cache: 'no-store' });
+      if (!response.ok) throw new Error('shared product API unavailable');
+      const products = (await response.json()).products;
       write(PRODUCTS_KEY, products);
       return products;
-    } catch { return []; }
+    } catch {
+      const saved = read(PRODUCTS_KEY, null);
+      if (Array.isArray(saved) && saved.length) return saved;
+      try {
+        const response = await fetch('/auth-products.json', { cache: 'no-store' });
+        if (!response.ok) return [];
+        const products = await response.json();
+        write(PRODUCTS_KEY, products);
+        return products;
+      } catch { return []; }
+    }
+  }
+
+  async function syncManagedProducts(products) {
+    if (window.LumosyCloud?.enabled) {
+      try { return await window.LumosyCloud.saveProducts(products); }
+      catch (error) { console.error('Cloud product save failed.', error); return false; }
+    }
+    try {
+      const response = await fetch('/api/admin/products', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Lumosy-Admin': 'local-preview' }, body: JSON.stringify({ products }) });
+      return response.ok;
+    } catch { return false; }
   }
 
   const statusLabel = (status) => copy[status] || status || copy.pending;
@@ -124,6 +159,14 @@
     const qqNumber = rawEmail.replace(/@qq\.com$/, '');
     if (method === 'qq' && !/^[1-9]\d{4,11}$/.test(qqNumber)) return setNotice(copy.invalidQq, 'error');
     const email = method === 'qq' ? `${qqNumber}@qq.com` : rawEmail;
+    if (method === 'qq') {
+      const code = String(data.get('verificationCode') || '').trim();
+      if (!/^\d{6}$/.test(code)) return setNotice(copy.codeRequired, 'error');
+      try {
+        const response = await fetch('/api/auth/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) });
+        if (!response.ok || !(await response.json()).ok) return setNotice(copy.codeFailed, 'error');
+      } catch { return setNotice(copy.codeSendFailed, 'error'); }
+    }
     const password = String(data.get('password') || '');
     if (password.length < 8) return setNotice(copy.weak, 'error');
     if (password !== String(data.get('confirmPassword') || '')) return setNotice(copy.mismatch, 'error');
@@ -191,6 +234,65 @@
     const inquiriesBody = document.querySelector('[data-inquiries-table]');
     const productForm = document.querySelector('[data-product-form]');
 
+    const adminSections = Array.from(document.querySelectorAll('[data-admin-section]'));
+    const adminHeading = document.querySelector('[data-admin-heading]');
+    document.querySelectorAll('[data-admin-view]').forEach((button) => button.addEventListener('click', () => {
+      const view = button.dataset.adminView;
+      document.querySelectorAll('[data-admin-view]').forEach((item) => item.classList.toggle('is-active', item === button));
+      adminSections.forEach((section) => { section.hidden = section.dataset.adminSection !== view; });
+      if (adminHeading) adminHeading.textContent = button.textContent.trim();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }));
+
+    const uploader = productForm?.querySelector('[data-image-uploader]');
+    const fileInput = productForm?.querySelector('[data-image-file]');
+    const imageInput = productForm?.elements.image;
+    const preview = productForm?.querySelector('[data-upload-preview]');
+    const uploadCopy = productForm?.querySelector('[data-upload-copy]');
+    const uploadStatus = productForm?.querySelector('[data-upload-status]');
+    const setProductImage = (url = '') => {
+      if (!imageInput || !preview || !uploadCopy) return;
+      imageInput.value = url;
+      preview.src = url;
+      preview.hidden = !url;
+      uploadCopy.hidden = Boolean(url);
+      if (!url) preview.removeAttribute('src');
+    };
+    if (productForm) productForm._setProductImage = setProductImage;
+    const uploadImage = async (file) => {
+      if (!file || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 8 * 1024 * 1024) return setNotice(copy.imageInvalid, 'error');
+      uploader.classList.add('is-uploading');
+      uploadStatus.textContent = copy.imageUploading;
+      try {
+        if (window.LumosyCloud?.enabled) {
+          const url = await window.LumosyCloud.uploadImage(file);
+          setProductImage(url);
+          uploadStatus.textContent = copy.imageUploaded;
+          return;
+        }
+        const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
+        const response = await fetch('/api/admin/upload-image', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Lumosy-Admin': 'local-preview' }, body: JSON.stringify({ name: file.name, type: file.type, data }) });
+        const result = await response.json();
+        if (!response.ok || !result.url) throw new Error('upload failed');
+        setProductImage(result.url);
+        uploadStatus.textContent = copy.imageUploaded;
+      } catch { uploadStatus.textContent = copy.imageUploadFailed; setNotice(copy.imageUploadFailed, 'error'); }
+      finally { uploader.classList.remove('is-uploading'); if (fileInput) fileInput.value = ''; }
+    };
+    uploader?.addEventListener('click', () => fileInput.click());
+    uploader?.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInput.click(); } });
+    fileInput?.addEventListener('change', () => uploadImage(fileInput.files?.[0]));
+    for (const name of ['dragenter', 'dragover']) uploader?.addEventListener(name, (event) => { event.preventDefault(); uploader.classList.add('is-dragging'); });
+    for (const name of ['dragleave', 'drop']) uploader?.addEventListener(name, (event) => { event.preventDefault(); uploader.classList.remove('is-dragging'); });
+    uploader?.addEventListener('drop', (event) => uploadImage(Array.from(event.dataTransfer?.files || []).find((file) => file.type.startsWith('image/'))));
+    document.addEventListener('paste', (event) => {
+      const productsSection = document.querySelector('[data-admin-section="products"]');
+      if (productsSection?.hidden) return;
+      const image = Array.from(event.clipboardData?.items || []).find((item) => item.type.startsWith('image/'))?.getAsFile();
+      if (image) { event.preventDefault(); uploadImage(image); }
+    });
+    productForm?.querySelector('[data-remove-image]')?.addEventListener('click', () => { setProductImage(''); uploadStatus.textContent = ''; });
+
     const updateStats = () => {
       const list = users();
       const inquiries = read(INQUIRIES_KEY, []);
@@ -238,7 +340,7 @@
       setNotice(copy.userUpdated);
     });
 
-    productsBody.addEventListener('click', (event) => {
+    productsBody.addEventListener('click', async (event) => {
       const products = read(PRODUCTS_KEY, []);
       const edit = event.target.closest('[data-edit-product]');
       const toggle = event.target.closest('[data-toggle-product]');
@@ -250,21 +352,25 @@
         for (const field of ['id', 'title', 'titleZh', 'category', 'categoryZh', 'image', 'status']) {
           if (productForm.elements[field]) productForm.elements[field].value = product[field] || '';
         }
+        setProductImage(product.image || '');
         productForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       if (toggle) {
         product.status = product.status === 'active' ? 'inactive' : 'active';
         write(PRODUCTS_KEY, products);
+        await syncManagedProducts(products);
         redrawProducts();
       }
       if (remove && confirm(copy.confirmDelete)) {
-        write(PRODUCTS_KEY, products.filter((item) => item.id !== product.id));
+        const nextProducts = products.filter((item) => item.id !== product.id);
+        write(PRODUCTS_KEY, nextProducts);
+        await syncManagedProducts(nextProducts);
         redrawProducts();
         setNotice(copy.productRemoved);
       }
     });
 
-    productForm?.addEventListener('submit', (event) => {
+    productForm?.addEventListener('submit', async (event) => {
       event.preventDefault();
       const data = new FormData(productForm);
       const products = read(PRODUCTS_KEY, []);
@@ -277,14 +383,18 @@
       record.title = title;
       record.titleZh = String(data.get('titleZh') || '').trim();
       record.category = String(data.get('category') || '').trim();
-      record.categoryZh = String(data.get('categoryZh') || '').trim();
+      const categoryOption = productForm.elements.category.selectedOptions?.[0];
+      record.categoryZh = categoryOption?.dataset.zh || '';
+      record.categorySlug = categoryOption?.dataset.slug || '';
       record.image = String(data.get('image') || '').trim() || '/wp-content/uploads/2026/10/logo.png';
       record.status = String(data.get('status') || 'active');
       record.updatedAt = new Date().toISOString();
       if (!product) products.unshift(record);
       write(PRODUCTS_KEY, products);
+      await syncManagedProducts(products);
       productForm.reset();
       productForm.elements.id.value = '';
+      setProductImage('');
       redrawProducts();
       setNotice(copy.productSaved);
     });
@@ -332,6 +442,9 @@
     if (registerForm) {
       const emailInput = registerForm.querySelector('[data-register-email]');
       const emailLabel = registerForm.querySelector('[data-email-label]');
+      const codeInput = registerForm.elements.verificationCode;
+      const codeStatus = registerForm.querySelector('[data-code-status]');
+      const sendCodeButton = registerForm.querySelector('[data-send-qq-code]');
       const setRegistrationMethod = (method) => {
         const isQq = method === 'qq';
         registerForm.dataset.registerMethod = method;
@@ -343,12 +456,34 @@
         emailInput.autocomplete = isQq ? 'off' : 'email';
         emailInput.placeholder = isQq ? emailInput.dataset.qqPlaceholder : emailInput.dataset.emailPlaceholder;
         emailInput.pattern = isQq ? '[1-9][0-9]{4,11}' : '';
+        codeInput.required = isQq;
+        codeInput.value = '';
+        codeStatus.textContent = '';
         emailInput.setAttribute('aria-describedby', isQq ? 'qq-email-help' : '');
         registerForm.classList.toggle('is-qq-registration', isQq);
         emailInput.focus();
       };
       registerForm.querySelectorAll('[data-register-method]').forEach((button) => button.addEventListener('click', () => setRegistrationMethod(button.dataset.registerMethod)));
       registerForm.querySelector('[data-qq-help]')?.setAttribute('id', 'qq-email-help');
+      sendCodeButton?.addEventListener('click', async () => {
+        const qqNumber = normalizeEmail(emailInput.value).replace(/@qq\.com$/, '');
+        if (!/^[1-9]\d{4,11}$/.test(qqNumber)) return setNotice(copy.invalidQq, 'error');
+        sendCodeButton.disabled = true;
+        try {
+          const response = await fetch('/api/auth/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: `${qqNumber}@qq.com` }) });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error('send failed');
+          codeStatus.textContent = `${copy.codeSent}${result.devCode ? ` ${copy.localCode}：${result.devCode}` : ''}`;
+          let seconds = 60;
+          const originalText = sendCodeButton.textContent;
+          sendCodeButton.textContent = `${seconds}s`;
+          const timer = setInterval(() => {
+            seconds -= 1;
+            sendCodeButton.textContent = seconds > 0 ? `${seconds}s` : originalText;
+            if (seconds <= 0) { clearInterval(timer); sendCodeButton.disabled = false; }
+          }, 1000);
+        } catch { sendCodeButton.disabled = false; setNotice(copy.codeSendFailed, 'error'); }
+      });
       registerForm.addEventListener('submit', (event) => {
         event.preventDefault();
         handleRegistration(event.currentTarget);

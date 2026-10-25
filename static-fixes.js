@@ -23,6 +23,15 @@
   const FAVORITES_KEY = 'lumosy_favorites_v1';
   const INQUIRIES_KEY = 'lumosy_inquiries_v1';
   const PRODUCTS_KEY = 'lumosy_products_v1';
+  const categorySlugByName = {
+    'Aluminum Carpet Transition Strip': 'aluminum-carpet-transition-strip',
+    'Aluminum Skirting Profile': 'aluminum-skirting-profile',
+    'Aluminum Tile Edge Trim profile': 'aluminum-tile-edge-trim-profile',
+    'Cabinet Aluminum Handle': 'cabinet-aluminum-handle',
+    'LED Channel For Wall Panel': 'led-channel-for-wall-panel',
+    'Wall Panel Edge Trim Profile': 'wall-panel-edge-trim-profile',
+    'Wall Panel Joint Profile': 'wall-panel-joint-profile'
+  };
   const zhText = new Map(Object.entries({
     'HOME': '首页', 'PRODUCTS': '产品', 'ABOUT': '关于我们', 'BLOG': '博客', 'FAQ': '常见问题', 'CONTACT US': '联系我们',
     'Home': '首页', 'Products': '产品', 'About': '关于我们', 'Blog': '博客', 'Contact Us': '联系我们', 'Request a Quote': '获取报价',
@@ -329,9 +338,9 @@
 
   function productFromControl(control) {
     const card = control.closest('.reference-store-card,.cxb-b2b-product-card,article');
-    const title = (card?.querySelector('h2,h3')?.textContent || document.querySelector('h1')?.textContent || document.title).trim();
+    const title = (card?.querySelector('h2,h3,h6')?.textContent || document.querySelector('h1')?.textContent || document.title).trim();
     const image = card?.querySelector('img')?.getAttribute('src') || document.querySelector('.cxb-b2b-gallery-main img')?.getAttribute('src') || '';
-    const productLink = card?.querySelector('h2 a,h3 a,.reference-store-card__image')?.getAttribute('href') || location.pathname;
+    const productLink = card?.querySelector('h2 a,h3 a,h6 a,.reference-store-card__image')?.getAttribute('href') || location.pathname;
     const id = control.dataset.productId || productLink;
     return { id, title, image, url: productLink, qty: 1 };
   }
@@ -458,49 +467,84 @@
   const saveStore = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
   async function ensureManagedProducts() {
-    const existing = readStore(PRODUCTS_KEY, null);
-    if (Array.isArray(existing) && existing.length) return existing;
+    if (window.LumosyCloud?.enabled) {
+      try {
+        const products = await window.LumosyCloud.getProducts();
+        if (Array.isArray(products) && products.length) {
+          saveStore(PRODUCTS_KEY, products);
+          return products;
+        }
+      } catch (error) { console.warn('Cloud product loading failed; using local fallback.', error); }
+    }
     try {
-      const response = await fetch('/auth-products.json', { cache: 'no-store' });
-      if (!response.ok) return [];
-      const products = await response.json();
+      const response = await fetch('/api/products', { cache: 'no-store' });
+      if (!response.ok) throw new Error('shared product API unavailable');
+      const products = (await response.json()).products;
       saveStore(PRODUCTS_KEY, products);
       return products;
-    } catch { return []; }
+    } catch {
+      const existing = readStore(PRODUCTS_KEY, null);
+      if (Array.isArray(existing) && existing.length) return existing;
+      try {
+        const response = await fetch('/auth-products.json', { cache: 'no-store' });
+        if (!response.ok) return [];
+        const products = await response.json();
+        saveStore(PRODUCTS_KEY, products);
+        return products;
+      } catch { return []; }
+    }
   }
 
   async function applyManagedProducts() {
-    const grid = document.querySelector('.reference-store-grid');
+    const grid = document.querySelector('.reference-store-grid,.cxb-b2b-products-grid');
     if (!grid) return;
     const products = await ensureManagedProducts();
+    const categoryMatch = location.pathname.match(/\/product-category\/([^/]+)/);
+    const currentCategorySlug = categoryMatch?.[1] || '';
+    const productCategorySlug = (product) => product.categorySlug || categorySlugByName[product.category] || '';
+    const belongsToCurrentCategory = (product) => !currentCategorySlug || productCategorySlug(product) === currentCategorySlug;
     const known = new Set();
-    grid.querySelectorAll('.reference-store-card').forEach((card) => {
-      const link = card.querySelector('h2 a,h3 a,.reference-store-card__image');
-      const pathname = link ? new URL(link.getAttribute('href'), location.origin).pathname : '';
+    grid.querySelectorAll('.reference-store-card,.cxb-b2b-product-card').forEach((card) => {
+      const link = card.querySelector('h2 a,h3 a,h6 a,.reference-store-card__image');
+      const pathname = link ? new URL(link.getAttribute('href'), location.origin).pathname : (card.dataset.productLink || '');
       const product = products.find((item) => item.url === pathname || item.url === pathname.replace(/^\/zh/, ''));
       if (!product) return;
       known.add(product.id);
-      card.hidden = product.status === 'inactive';
+      card.hidden = product.status === 'inactive' || !belongsToCurrentCategory(product);
       card.dataset.managedProductId = product.id;
-      card.querySelectorAll('h2 a,h3 a').forEach((el) => { el.textContent = isZh && product.titleZh ? product.titleZh : product.title; });
-      const category = card.querySelector('h2 + p,h3 + p');
+      card.querySelectorAll('h2 a,h3 a,h6 a').forEach((el) => { el.textContent = isZh && product.titleZh ? product.titleZh : product.title; });
+      const category = card.querySelector('h2 + p,h3 + p,.cxb-b2b-product-category a');
       if (category) category.textContent = isZh && product.categoryZh ? product.categoryZh : product.category;
       const image = card.querySelector('img');
       if (image && product.image) { image.src = product.image; image.removeAttribute('srcset'); }
     });
-    products.filter((product) => product.source === 'custom' && product.status !== 'inactive' && !known.has(product.id)).forEach((product) => {
+    products.filter((product) => product.source === 'custom' && product.status !== 'inactive' && belongsToCurrentCategory(product) && !known.has(product.id)).forEach((product) => {
       const title = isZh && product.titleZh ? product.titleZh : product.title;
       const category = isZh && product.categoryZh ? product.categoryZh : product.category;
-      const card = document.createElement('article');
-      card.className = 'reference-store-card';
+      const isCategoryGrid = grid.classList.contains('cxb-b2b-products-grid');
+      const card = document.createElement(isCategoryGrid ? 'div' : 'article');
+      card.className = isCategoryGrid ? 'cxb-b2b-product-card content-product-card cxb-b2b-product-card-top-image' : 'reference-store-card';
       card.dataset.managedProductId = product.id;
-      card.innerHTML = `<a class="reference-store-card__image" href="${product.url}"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></a><h2><a href="${product.url}">${title}</a></h2><p>${category}</p><span>${copy.rating}</span><a class="reference-store-card__button" href="${product.url}#inquiry">${copy.addQuote}</a>`;
+      card.dataset.productLink = product.url;
+      card.innerHTML = isCategoryGrid
+        ? `<div class="cxb-b2b-product-thumbnail"><a href="${product.url}"><div class="cxb-b2b-product-image-wrapper"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></div></a></div><div class="cxb-b2b-product-info"><h6 class="cxb-b2b-product-title"><a href="${product.url}">${title}</a></h6><div class="cxb-b2b-product-excerpt"><p>${title} — ${category}</p></div><div class="cxb-b2b-product-meta"><span class="cxb-b2b-product-category"><strong>${isZh ? '类别：' : 'Categories:'}</strong> <a href="${isZh ? '/zh' : ''}/product-category/${productCategorySlug(product)}/">${category}</a></span></div><div class="cxb-b2b-product-actions"><button type="button" class="cxb-b2b-add-to-quote-button" data-product-id="${product.id}"><span class="cxb-b2b-btn-label cxb-b2b-btn-label-default">${copy.addQuote}</span></button></div></div>`
+        : `<a class="reference-store-card__image" href="${product.url}"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></a><h2><a href="${product.url}">${title}</a></h2><p>${category}</p><span>${copy.rating}</span><a class="reference-store-card__button" href="${product.url}#inquiry">${copy.addQuote}</a>`;
       grid.appendChild(card);
     });
+    const activeProducts = products.filter((product) => product.status !== 'inactive');
+    document.querySelectorAll('.cxb-b2b-sidebar-category-link').forEach((link) => {
+      const slug = new URL(link.getAttribute('href'), location.origin).pathname.match(/\/product-category\/([^/]+)/)?.[1];
+      const count = activeProducts.filter((product) => productCategorySlug(product) === slug).length;
+      const countElement = link.querySelector('.category-count');
+      if (countElement) countElement.textContent = String(count);
+    });
+    const currentCount = activeProducts.filter(belongsToCurrentCategory).length;
+    const toolbarCount = document.querySelector('.cxb-b2b-archive-toolbar-count');
+    if (toolbarCount) toolbarCount.innerHTML = `<strong>${currentCount}</strong> ${isZh ? '产品' : currentCount === 1 ? 'product' : 'products'}`;
   }
 
   function setupFavorites() {
-    document.querySelectorAll('.reference-store-card,.reference-product-card').forEach((card) => {
+    document.querySelectorAll('.reference-store-card,.reference-product-card,.cxb-b2b-product-card').forEach((card) => {
       if (card.querySelector('.static-favorite-button')) return;
       const control = document.createElement('button');
       control.type = 'button';
@@ -513,7 +557,7 @@
       const saved = readStore(FAVORITES_KEY, []).some((item) => item.userId === session?.userId && String(item.product.id) === String(product.id));
       control.classList.toggle('is-saved', saved);
       control.textContent = saved ? '♥' : '♡';
-      (card.querySelector('.reference-store-card__image,.reference-product-card__image') || card).appendChild(control);
+      (card.querySelector('.reference-store-card__image,.reference-product-card__image,.cxb-b2b-product-thumbnail') || card).appendChild(control);
     });
   }
 
