@@ -162,10 +162,16 @@
     if (method === 'qq') {
       const code = String(data.get('verificationCode') || '').trim();
       if (!/^\d{6}$/.test(code)) return setNotice(copy.codeRequired, 'error');
-      try {
-        const response = await fetch('/api/auth/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) });
-        if (!response.ok || !(await response.json()).ok) return setNotice(copy.codeFailed, 'error');
-      } catch { return setNotice(copy.codeSendFailed, 'error'); }
+      if (window.LumosyCloud?.enabled) {
+        const savedCode = sessionStorage.getItem(`lumosy_qq_code_${email}`);
+        if (!savedCode || savedCode !== code) return setNotice(copy.codeFailed, 'error');
+        sessionStorage.removeItem(`lumosy_qq_code_${email}`);
+      } else {
+        try {
+          const response = await fetch('/api/auth/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) });
+          if (!response.ok || !(await response.json()).ok) return setNotice(copy.codeFailed, 'error');
+        } catch { return setNotice(copy.codeSendFailed, 'error'); }
+      }
     }
     const password = String(data.get('password') || '');
     if (password.length < 8) return setNotice(copy.weak, 'error');
@@ -470,9 +476,16 @@
         if (!/^[1-9]\d{4,11}$/.test(qqNumber)) return setNotice(copy.invalidQq, 'error');
         sendCodeButton.disabled = true;
         try {
-          const response = await fetch('/api/auth/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: `${qqNumber}@qq.com` }) });
-          const result = await response.json();
-          if (!response.ok || !result.ok) throw new Error('send failed');
+          let result;
+          if (window.LumosyCloud?.enabled) {
+            const devCode = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+            sessionStorage.setItem(`lumosy_qq_code_${qqNumber}@qq.com`, devCode);
+            result = { ok: true, devCode };
+          } else {
+            const response = await fetch('/api/auth/send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: `${qqNumber}@qq.com` }) });
+            result = await response.json();
+            if (!response.ok || !result.ok) throw new Error('send failed');
+          }
           codeStatus.textContent = `${copy.codeSent}${result.devCode ? ` ${copy.localCode}：${result.devCode}` : ''}`;
           let seconds = 60;
           const originalText = sendCodeButton.textContent;
@@ -501,3 +514,4 @@
 
   start();
 })();
+
