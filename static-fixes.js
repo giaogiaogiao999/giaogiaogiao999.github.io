@@ -142,9 +142,9 @@
   };
   const updateQuoteBadges = () => {
     const count = readQuote().reduce((sum, item) => sum + (Number(item.qty) || 1), 0);
-    document.querySelectorAll('.cxb-b2b-quote-basket-toggle-count,.nbb2b-qs-count').forEach((el) => {
+    document.querySelectorAll('.cxb-b2b-quote-basket-toggle-count,.nbb2b-qs-count,.static-inquiry-menu span').forEach((el) => {
       el.textContent = String(count);
-      el.style.display = count ? '' : 'none';
+      if (!el.matches('.static-inquiry-menu span')) el.style.display = count ? '' : 'none';
     });
   };
 
@@ -330,9 +330,14 @@
         : (isZh ? '登录 / 注册' : 'LOGIN / REGISTER');
     document.querySelectorAll('#menu-primary-menu,#menu-primary-menu-1').forEach((menu) => {
       if (menu.querySelector('.static-account-menu')) return;
+      const inquiry = document.createElement('li');
+      const quoteCount = readQuote().reduce((sum, product) => sum + (Number(product.qty) || 1), 0);
+      inquiry.className = 'menu-item static-inquiry-menu';
+      inquiry.innerHTML = `<a href="${isZh ? '/zh/request-a-quote/' : '/request-a-quote/'}">${isZh ? '询价中心' : 'INQUIRY'} <span>${quoteCount}</span></a>`;
       const item = document.createElement('li');
       item.className = 'menu-item static-account-menu';
       item.innerHTML = `<a href="${destination}">${label}</a>`;
+      menu.insertBefore(inquiry, menu.lastElementChild);
       menu.insertBefore(item, menu.lastElementChild);
     });
   }

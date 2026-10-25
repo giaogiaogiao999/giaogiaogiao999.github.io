@@ -84,10 +84,11 @@ button, input, select { font: inherit; }
 }
 .portal-menu .is-active, .portal-menu a:hover, .portal-menu button:hover { color: #fff; background: rgba(255,255,255,.1); }
 .portal-main { padding: 34px clamp(24px, 4vw, 64px) 70px; }
-.portal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+.portal-top { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
 .portal-top h1 { margin: 0; color: var(--auth-deep); font-size: 32px; }
-.portal-user { color: var(--auth-muted); font-size: 14px; }
+.portal-user { display: grid; justify-items: end; gap: 4px; color: var(--auth-muted); font-size: 14px; }
 .portal-user strong { color: var(--auth-deep); }
+.portal-user small { color: var(--auth-muted); font-size: 12px; }
 .admin-section[hidden] { display: none; }
 .section-intro { margin: 0 0 20px; }
 .section-intro h2 { margin: 0; color: var(--auth-deep); font-size: 25px; }
@@ -145,6 +146,35 @@ button, input, select { font: inherit; }
 .favorite-list a { color: var(--auth-deep); font-weight: 700; }
 .favorite-list button { width: 30px; height: 30px; border: 0; border-radius: 50%; color: #a62b2b; background: #fff0f0; cursor: pointer; }
 
+/* Customer inquiry center --------------------------------------------------- */
+.account-section[hidden] { display: none; }
+.account-welcome { display: flex; align-items: center; justify-content: space-between; gap: 30px; margin-bottom: 22px; padding: 34px 38px; color: #fff; background: linear-gradient(120deg,#143047,#087eaf); box-shadow: 0 14px 32px rgba(19,48,71,.14); }
+.account-welcome span { color: #8ed9f5; font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.account-welcome h2 { margin: 7px 0 9px; font-size: clamp(25px,3vw,38px); }
+.account-welcome p { max-width: 610px; margin: 0; color: #d9ebf3; line-height: 1.6; }
+.account-primary-action { min-width: 170px; display: inline-flex; align-items: center; justify-content: center; padding: 0 20px; white-space: nowrap; }
+.account-stats { grid-template-columns: repeat(3,1fr); }
+.account-actions { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+.account-actions > * { display: flex; align-items: center; gap: 15px; min-height: 94px; padding: 20px; border: 1px solid #e0e8ee; color: #17364d; background: #fff; box-shadow: 0 8px 26px rgba(19,48,71,.05); text-align: left; cursor: pointer; }
+.account-actions button { font: inherit; }
+.account-actions b { color: #0796d2; font-size: 13px; }
+.account-actions span { font-weight: 800; }
+.account-actions small { display: block; margin-top: 5px; color: #718491; font-weight: 400; }
+.account-actions > *:hover { border-color: #8ccce7; transform: translateY(-2px); }
+.account-inquiry-grid { display: grid; grid-template-columns: minmax(350px,.8fr) minmax(0,1.2fr); gap: 22px; align-items: start; }
+.account-card-head { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 8px; }
+.account-card-head h2 { margin: 0; }
+.account-card-head a { font-size: 13px; font-weight: 700; }
+.quote-list--large li { grid-template-columns: 68px 1fr auto; padding: 15px 0; }
+.quote-list--large img { width: 68px; height: 68px; border-radius: 4px; }
+.quote-list--large span strong { display: block; color: #17364d; font-size: 14px; line-height: 1.35; }
+.quote-list--large span small { display: block; margin-top: 6px; color: #718491; }
+.quote-list--large button { width: 30px; height: 30px; border: 0; border-radius: 50%; color: #a62b2b; background: #fff0f0; cursor: pointer; }
+.account-submit-quote { width: 100%; display: flex; align-items: center; justify-content: center; margin-top: 20px; }
+.account-submit-quote.is-disabled { opacity: .45; pointer-events: none; }
+.account-table-wrap { overflow-x: auto; }
+.account-profile-card { width: min(720px,100%); }
+
 @media (max-width: 960px) {
   .auth-shell { grid-template-columns: 1fr; }
   .auth-visual { min-height: 340px; }
@@ -153,6 +183,7 @@ button, input, select { font: inherit; }
   .portal-role { display: none; }
   .portal-menu { grid-template-columns: repeat(3, auto); margin-top: 14px; }
   .portal-grid { grid-template-columns: 1fr; }
+  .account-inquiry-grid { grid-template-columns: 1fr; }
   .product-workspace { grid-template-columns: 1fr; }
   .product-editor-card { position: static; }
   .portal-stats--four { grid-template-columns: repeat(2, 1fr); }
@@ -166,9 +197,13 @@ button, input, select { font: inherit; }
   .auth-panel { padding: 38px 22px; }
   .auth-fields-2, .profile-form { grid-template-columns: 1fr; }
   .portal-main { padding: 24px 14px 50px; overflow: hidden; }
+  .portal-top { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .portal-user { justify-items: start; }
   .portal-stats { grid-template-columns: 1fr; }
   .portal-menu { grid-template-columns: 1fr 1fr; }
   .portal-card { padding: 18px; overflow-x: auto; }
+  .account-welcome { align-items: flex-start; flex-direction: column; padding: 27px 24px; }
+  .account-stats,.account-actions { grid-template-columns: 1fr; }
 }
 
 html:not([data-auth-ready='true']) .portal-main { pointer-events: none; opacity: .72; cursor: progress; }

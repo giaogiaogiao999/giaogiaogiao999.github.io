@@ -239,6 +239,17 @@
   function renderAccount(user) {
     document.querySelectorAll('[data-user-name]').forEach((el) => { el.textContent = user.name; });
     document.querySelectorAll('[data-user-email]').forEach((el) => { el.textContent = user.email; });
+    const sections = Array.from(document.querySelectorAll('[data-account-section]'));
+    const heading = document.querySelector('[data-account-heading]');
+    const openView = (view, source) => {
+      document.querySelectorAll('[data-account-view]').forEach((item) => item.classList.toggle('is-active', item === source || item.dataset.accountView === view));
+      sections.forEach((section) => { section.hidden = section.dataset.accountSection !== view; });
+      const menu = document.querySelector(`[data-account-view="${view}"]`);
+      if (heading && menu) heading.textContent = menu.textContent.trim();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    document.querySelectorAll('[data-account-view]').forEach((button) => { button.onclick = () => openView(button.dataset.accountView, button); });
+    document.querySelectorAll('[data-account-jump]').forEach((button) => { button.onclick = () => openView(button.dataset.accountJump); });
     const form = document.querySelector('[data-profile-form]');
     if (form) {
       form.elements.name.value = user.name || '';
@@ -257,26 +268,46 @@
         setNotice(copy.saved);
       });
     }
-    const quote = read(QUOTE_KEY, []);
     const quoteList = document.querySelector('[data-quote-list]');
-    if (quoteList) quoteList.innerHTML = quote.length ? quote.map((item) => `
-      <li><img src="${escapeHtml(item.image || '/wp-content/uploads/2026/10/logo.png')}" alt=""><span>${escapeHtml(item.title)}</span><b>× ${Number(item.qty) || 1}</b></li>`).join('') : `<li class="is-empty">${copy.noQuote}</li>`;
     const inquiryList = document.querySelector('[data-inquiry-list]');
-    const inquiries = read(INQUIRIES_KEY, []).filter((item) => item.userId === user.id);
-    if (inquiryList) inquiryList.innerHTML = inquiries.length ? inquiries.map((item) => `
-      <tr><td>${escapeHtml(item.id)}</td><td>${new Date(item.createdAt).toLocaleDateString()}</td><td>${Number(item.items?.length || 0)}</td><td><span class="status-badge status-${escapeHtml(item.status || 'pending')}">${escapeHtml(statusLabel(item.status))}</span></td></tr>`).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
     const favoriteList = document.querySelector('[data-favorite-list]');
-    const favorites = read(FAVORITES_KEY, []).filter((item) => item.userId === user.id);
-    if (favoriteList) favoriteList.innerHTML = favorites.length ? favorites.map(({ product }) => `
-      <li><img src="${escapeHtml(product.image || '/wp-content/uploads/2026/10/logo.png')}" alt=""><a href="${escapeHtml(product.url || '/products/')}">${escapeHtml(product.title)}</a><button type="button" data-remove-favorite="${escapeHtml(String(product.id))}" aria-label="Remove">×</button></li>`).join('') : `<li class="is-empty">${copy.noFavorite}</li>`;
+    const renderAccountData = () => {
+      const quote = read(QUOTE_KEY, []);
+      const inquiries = read(INQUIRIES_KEY, []).filter((item) => item.userId === user.id || normalizeEmail(item.email) === normalizeEmail(user.email));
+      const favorites = read(FAVORITES_KEY, []).filter((item) => item.userId === user.id);
+      if (quoteList) quoteList.innerHTML = quote.length ? quote.map((item) => `
+        <li><img src="${escapeHtml(item.image || '/wp-content/uploads/2026/10/logo.png')}" alt=""><span><strong>${escapeHtml(item.title)}</strong><small>${isZh ? '数量' : 'Quantity'}: ${Number(item.qty) || 1}</small></span><button type="button" data-remove-quote="${escapeHtml(String(item.id))}" aria-label="${copy.remove}">×</button></li>`).join('') : `<li class="is-empty">${copy.noQuote}</li>`;
+      if (inquiryList) inquiryList.innerHTML = inquiries.length ? inquiries.map((item) => `
+        <tr><td><strong>${escapeHtml(item.id)}</strong></td><td>${new Date(item.createdAt).toLocaleDateString()}</td><td>${Number(item.items?.length || 0)}<small>${escapeHtml((item.items || []).map((product) => product.title).join('、'))}</small></td><td><span class="status-badge status-${escapeHtml(item.status || 'pending')}">${escapeHtml(statusLabel(item.status))}</span></td></tr>`).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
+      if (favoriteList) favoriteList.innerHTML = favorites.length ? favorites.map(({ product }) => `
+        <li><img src="${escapeHtml(product.image || '/wp-content/uploads/2026/10/logo.png')}" alt=""><a href="${escapeHtml(product.url || '/products/')}">${escapeHtml(product.title)}</a><button type="button" data-remove-favorite="${escapeHtml(String(product.id))}" aria-label="${copy.remove}">×</button></li>`).join('') : `<li class="is-empty">${copy.noFavorite}</li>`;
+      const quoteStat = document.querySelector('[data-stat-quote]');
+      const inquiryStat = document.querySelector('[data-stat-user-inquiries]');
+      const favoriteStat = document.querySelector('[data-stat-favorites]');
+      if (quoteStat) quoteStat.textContent = String(quote.length);
+      if (inquiryStat) inquiryStat.textContent = String(inquiries.length);
+      if (favoriteStat) favoriteStat.textContent = String(favorites.length);
+      document.querySelector('.account-submit-quote')?.classList.toggle('is-disabled', quote.length === 0);
+    };
+    quoteList?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-remove-quote]');
+      if (!button) return;
+      write(QUOTE_KEY, read(QUOTE_KEY, []).filter((item) => String(item.id) !== button.dataset.removeQuote));
+      renderAccountData();
+    });
     favoriteList?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-remove-favorite]');
       if (!button) return;
       const next = read(FAVORITES_KEY, []).filter((item) => !(item.userId === user.id && String(item.product.id) === button.dataset.removeFavorite));
       write(FAVORITES_KEY, next);
-      renderAccount(user);
+      renderAccountData();
       setNotice(copy.favoriteRemoved || copy.saved);
-    }, { once: true });
+    });
+    renderAccountData();
+    if (!document.body.dataset.accountRefreshStarted) {
+      document.body.dataset.accountRefreshStarted = 'true';
+      setInterval(async () => { await ensureInquiries(); renderAccountData(); }, 15000);
+    }
   }
 
   function renderAdmin(admin) {
