@@ -642,6 +642,10 @@
     const categoryMatch = location.pathname.match(/\/product-category\/([^/]+)/);
     const currentCategorySlug = categoryMatch?.[1] || new URLSearchParams(location.search).get('category') || '';
     const productCategorySlug = (product) => product.categorySlug || categorySlugByName[product.category] || '';
+    const productUrl = (product) => {
+      const url = safeInternalUrl(product.url);
+      return isZh && url.startsWith('/product/custom/') ? `/zh${url}` : url;
+    };
     const belongsToCurrentCategory = (product) => !currentCategorySlug || productCategorySlug(product) === currentCategorySlug;
     const known = new Set();
     grid.querySelectorAll('.reference-store-card,.cxb-b2b-product-card').forEach((card) => {
@@ -663,7 +667,7 @@
       const category = isZh && product.categoryZh ? product.categoryZh : product.category;
       const safeTitle = escapeHtml(title);
       const safeCategory = escapeHtml(category);
-      const safeProductUrl = escapeHtml(safeInternalUrl(product.url));
+      const safeProductUrl = escapeHtml(productUrl(product));
       const safeImage = escapeHtml(safeImageUrl(product.image));
       const safeProductId = escapeHtml(product.id);
       const safeCategorySlug = encodeURIComponent(productCategorySlug(product));
@@ -671,7 +675,7 @@
       const card = document.createElement(isCategoryGrid ? 'div' : 'article');
       card.className = isCategoryGrid ? 'cxb-b2b-product-card content-product-card cxb-b2b-product-card-top-image' : 'reference-store-card';
       card.dataset.managedProductId = product.id;
-      card.dataset.productLink = safeInternalUrl(product.url);
+      card.dataset.productLink = productUrl(product);
       card.innerHTML = isCategoryGrid
         ? `<div class="cxb-b2b-product-thumbnail"><a href="${safeProductUrl}"><div class="cxb-b2b-product-image-wrapper"><img loading="lazy" src="${safeImage}" alt="${safeTitle}"></div></a></div><div class="cxb-b2b-product-info"><h6 class="cxb-b2b-product-title"><a href="${safeProductUrl}">${safeTitle}</a></h6><div class="cxb-b2b-product-excerpt"><p>${safeTitle} — ${safeCategory}</p></div><div class="cxb-b2b-product-meta"><span class="cxb-b2b-product-category"><strong>${isZh ? '类别：' : 'Categories:'}</strong> <a href="${isZh ? '/zh' : ''}/product-category/${safeCategorySlug}/">${safeCategory}</a></span></div><div class="cxb-b2b-product-actions"><button type="button" class="cxb-b2b-add-to-quote-button" data-product-id="${safeProductId}"><span class="cxb-b2b-btn-label cxb-b2b-btn-label-default">${copy.addQuote}</span></button></div></div>`
         : `<a class="reference-store-card__image" href="${safeProductUrl}"><img loading="lazy" src="${safeImage}" alt="${safeTitle}"></a><h2><a href="${safeProductUrl}">${safeTitle}</a></h2><p>${safeCategory}</p><span>${copy.rating}</span><a class="reference-store-card__button" href="${safeProductUrl}#inquiry">${copy.addQuote}</a>`;
@@ -720,7 +724,7 @@
       if (homeGrid.querySelector(`[data-managed-product-id="${CSS.escape(product.id)}"]`)) return;
       const title = isZh && product.titleZh ? product.titleZh : product.title;
       const safeTitle = escapeHtml(title);
-      const safeProductUrl = escapeHtml(safeInternalUrl(product.url));
+      const safeProductUrl = escapeHtml(productUrl(product));
       const card = document.createElement('article');
       card.className = 'reference-product-card';
       card.dataset.managedProductId = product.id;

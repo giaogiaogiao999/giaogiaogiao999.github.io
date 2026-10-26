@@ -8,6 +8,7 @@
   const FAVORITES_KEY = 'lumosy_favorites_v1';
   const PRODUCTS_KEY = 'lumosy_products_v1';
   const CATEGORIES_KEY = 'lumosy_categories_v1';
+  const AUDIT_LOGS_KEY = 'lumosy_audit_logs_v1';
   const DEFAULT_CATEGORIES = [
     ['Aluminum Carpet Transition Strip', '铝地毯过渡条', 'aluminum-carpet-transition-strip'],
     ['Aluminum Skirting Profile', '铝制踢脚线型材', 'aluminum-skirting-profile'],
@@ -71,6 +72,64 @@
       passwordHash: await hashPassword('Admin123!'), role: 'admin', status: 'active', createdAt: new Date().toISOString()
     });
     write(USERS_KEY, users);
+  }
+
+  async function ensureUsers() {
+    const localUsers = read(USERS_KEY, []);
+    if (window.LumosyCloud?.enabled) {
+      try {
+        let cloudUsers = await window.LumosyCloud.getUsers();
+        if (!cloudUsers.length) {
+          cloudUsers = localUsers;
+          await window.LumosyCloud.saveUsers(cloudUsers);
+        } else {
+          const missingLocalUsers = localUsers.filter((localUser) => !cloudUsers.some((cloudUser) => normalizeEmail(cloudUser.email) === normalizeEmail(localUser.email)));
+          if (missingLocalUsers.length) {
+            cloudUsers.push(...missingLocalUsers);
+            await window.LumosyCloud.saveUsers(cloudUsers);
+          }
+        }
+        write(USERS_KEY, cloudUsers);
+        return cloudUsers;
+      } catch (error) { console.warn('Cloud account loading failed; using local fallback.', error); }
+    }
+    return localUsers;
+  }
+
+  async function appendUser(user) {
+    if (window.LumosyCloud?.enabled) {
+      try {
+        const next = await window.LumosyCloud.appendUser(user);
+        write(USERS_KEY, next);
+        return true;
+      } catch (error) {
+        if (error?.code === 'ACCOUNT_EXISTS' || error?.message === 'ACCOUNT_EXISTS') return 'exists';
+        console.error('Cloud account save failed.', error);
+        return false;
+      }
+    }
+    const next = users();
+    if (next.some((item) => item.email === user.email)) return 'exists';
+    next.push(user);
+    write(USERS_KEY, next);
+    return true;
+  }
+
+  async function updateUser(user) {
+    user.updatedAt = new Date().toISOString();
+    if (window.LumosyCloud?.enabled) {
+      try {
+        const next = await window.LumosyCloud.updateUser(user);
+        write(USERS_KEY, next);
+        return true;
+      } catch (error) { console.error('Cloud account update failed.', error); return false; }
+    }
+    const next = users();
+    const index = next.findIndex((item) => item.id === user.id);
+    if (index < 0) return false;
+    next[index] = user;
+    write(USERS_KEY, next);
+    return true;
   }
 
   async function ensureProducts() {
@@ -160,6 +219,31 @@
     return true;
   }
 
+  async function ensureAuditLogs() {
+    if (window.LumosyCloud?.enabled) {
+      try {
+        const logs = await window.LumosyCloud.getAuditLogs();
+        write(AUDIT_LOGS_KEY, logs);
+        return logs;
+      } catch (error) { console.warn('Cloud audit log loading failed.', error); }
+    }
+    return read(AUDIT_LOGS_KEY, []);
+  }
+
+  async function audit(action, target, detail = '') {
+    const entry = {
+      id: makeId('audit'), action: String(action || ''), target: String(target || ''), detail: String(detail || ''),
+      actor: currentSession()?.role === 'admin' ? 'Administrator' : 'User', createdAt: new Date().toISOString()
+    };
+    try {
+      const logs = window.LumosyCloud?.enabled
+        ? await window.LumosyCloud.appendAuditLog(entry)
+        : [entry, ...read(AUDIT_LOGS_KEY, [])].slice(0, 500);
+      write(AUDIT_LOGS_KEY, logs);
+      return true;
+    } catch (error) { console.warn('Audit log save failed.', error); return false; }
+  }
+
   const statusLabel = (status) => copy[status] || status || copy.pending;
 
   function setNotice(message, type = 'success') {
@@ -198,6 +282,7 @@
   }
 
   async function handleLogin(form) {
+    await ensureUsers();
     const email = normalizeEmail(form.elements.email.value);
     const passwordHash = await hashPassword(form.elements.password.value);
     const user = users().find((item) => item.email === email && item.passwordHash === passwordHash);
@@ -233,6 +318,7 @@
     const password = String(data.get('password') || '');
     if (password.length < 8) return setNotice(copy.weak, 'error');
     if (password !== String(data.get('confirmPassword') || '')) return setNotice(copy.mismatch, 'error');
+    await ensureUsers();
     const allUsers = users();
     if (allUsers.some((user) => user.email === email)) return setNotice(copy.exists, 'error');
     const user = {
@@ -240,8 +326,9 @@
       phone: String(data.get('phone') || '').trim(), company: String(data.get('company') || '').trim(),
       passwordHash: await hashPassword(password), registrationMethod: method, role: 'user', status: 'active', createdAt: new Date().toISOString()
     };
-    allUsers.push(user);
-    write(USERS_KEY, allUsers);
+    const saved = await appendUser(user);
+    if (saved === 'exists') return setNotice(copy.exists, 'error');
+    if (!saved) return setNotice(copy.syncFailed, 'error');
     saveSession(user);
     setNotice(copy.registered);
     setTimeout(() => { location.href = route('account'); }, 500);
@@ -267,14 +354,14 @@
       form.elements.email.value = user.email || '';
       form.elements.phone.value = user.phone || '';
       form.elements.company.value = user.company || '';
-      form.addEventListener('submit', (event) => {
+      form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const allUsers = users();
         const saved = allUsers.find((item) => item.id === user.id);
         saved.name = form.elements.name.value.trim();
         saved.phone = form.elements.phone.value.trim();
         saved.company = form.elements.company.value.trim();
-        write(USERS_KEY, allUsers);
+        if (!await updateUser(saved)) return setNotice(copy.syncFailed, 'error');
         saveSession(saved);
         setNotice(copy.saved);
       });
@@ -332,6 +419,11 @@
     const productForm = document.querySelector('[data-product-form]');
     const categoriesBody = document.querySelector('[data-categories-table]');
     const categoryForm = document.querySelector('[data-category-form]');
+    const inquirySearch = document.querySelector('[data-inquiry-search]');
+    const inquiryType = document.querySelector('[data-inquiry-type]');
+    const inquiryFilter = document.querySelector('[data-inquiry-filter]');
+    const inquirySummary = document.querySelector('[data-inquiry-summary]');
+    const auditBody = document.querySelector('[data-audit-table]');
 
     const adminSections = Array.from(document.querySelectorAll('[data-admin-section]'));
     const adminHeading = document.querySelector('[data-admin-heading]');
@@ -432,7 +524,16 @@
 
     const redrawInquiries = () => {
       const inquiries = read(INQUIRIES_KEY, []);
-      inquiriesBody.innerHTML = inquiries.length ? inquiries.map((item) => {
+      const query = String(inquirySearch?.value || '').trim().toLowerCase();
+      const type = inquiryType?.value || 'all';
+      const status = inquiryFilter?.value || 'all';
+      const visible = inquiries.filter((item) => {
+        const itemType = item.type === 'message' || !(item.items || []).length ? 'message' : 'quote';
+        const haystack = [item.id, item.customer, item.email, item.phone, item.company, item.message, ...(item.items || []).map((product) => product.title)].join(' ').toLowerCase();
+        return (!query || haystack.includes(query)) && (type === 'all' || itemType === type) && (status === 'all' || item.status === status);
+      });
+      if (inquirySummary) inquirySummary.textContent = `${visible.length} / ${inquiries.length} ${isZh ? '条记录' : 'records'}`;
+      inquiriesBody.innerHTML = visible.length ? visible.map((item) => {
         const fields = item.fields || {};
         const phone = item.phone || fields.phone || '';
         const country = item.country || fields.country || '';
@@ -443,30 +544,62 @@
           <td><strong>${escapeHtml(item.id)}</strong><small>${new Date(item.createdAt).toLocaleString()}</small></td>
           <td><strong>${escapeHtml(item.customer || 'Guest')}</strong><small>${escapeHtml(item.email || '')}</small>${phone ? `<small>${escapeHtml(phone)}</small>` : ''}${country ? `<small>${escapeHtml(country)}</small>` : ''}</td>
           <td><strong>${isMessage ? (isZh ? '普通留言' : 'General message') : `${Number(item.items?.length || 0)} ${isZh ? '件产品' : 'products'}`}</strong><small>${escapeHtml(products)}</small>${message ? `<details class="inquiry-details"><summary>${isZh ? '查看需求说明' : 'View requirements'}</summary><p>${escapeHtml(message)}</p></details>` : ''}</td>
-          <td><select class="table-select" data-inquiry-status="${escapeHtml(item.id)}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>${copy.pending}</option><option value="processing" ${item.status === 'processing' ? 'selected' : ''}>${copy.processing}</option><option value="completed" ${item.status === 'completed' ? 'selected' : ''}>${copy.completed}</option></select><button class="table-action is-danger inquiry-delete" type="button" data-delete-inquiry="${escapeHtml(item.id)}">${copy.remove}</button></td>
+          <td><select class="table-select" data-inquiry-status="${escapeHtml(item.id)}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>${copy.pending}</option><option value="processing" ${item.status === 'processing' ? 'selected' : ''}>${copy.processing}</option><option value="completed" ${item.status === 'completed' ? 'selected' : ''}>${copy.completed}</option></select><textarea class="inquiry-note" data-inquiry-note="${escapeHtml(item.id)}" rows="2" placeholder="${isZh ? '管理员备注' : 'Internal note'}">${escapeHtml(item.note || '')}</textarea><button class="table-action is-danger inquiry-delete" type="button" data-delete-inquiry="${escapeHtml(item.id)}">${copy.remove}</button></td>
         </tr>`;
-      }).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
+      }).join('') : `<tr><td colspan="4">${query || type !== 'all' || status !== 'all' ? (isZh ? '没有符合筛选条件的记录。' : 'No matching records.') : copy.noInquiry}</td></tr>`;
       updateStats();
+    };
+
+    const redrawAudit = () => {
+      if (!auditBody) return;
+      const logs = read(AUDIT_LOGS_KEY, []);
+      auditBody.innerHTML = logs.length ? logs.map((entry) => `<tr><td>${new Date(entry.createdAt).toLocaleString()}</td><td><strong>${escapeHtml(entry.action)}</strong><small>${escapeHtml(entry.actor || 'Administrator')}</small></td><td>${escapeHtml(entry.target || '—')}</td><td>${escapeHtml(entry.detail || '—')}</td></tr>`).join('') : `<tr><td colspan="4">${isZh ? '暂无操作记录。' : 'No operation logs yet.'}</td></tr>`;
     };
 
     redrawUsers();
     redrawCategories();
     redrawProducts();
     redrawInquiries();
+    redrawAudit();
     if (window.LumosyCloud?.enabled) setInterval(async () => {
-      await ensureInquiries();
+      await Promise.all([ensureInquiries(), ensureAuditLogs(), ensureUsers()]);
       redrawInquiries();
+      redrawAudit();
+      redrawUsers();
     }, 15000);
 
-    usersBody.addEventListener('click', (event) => {
+    inquirySearch?.addEventListener('input', redrawInquiries);
+    inquiryType?.addEventListener('change', redrawInquiries);
+    inquiryFilter?.addEventListener('change', redrawInquiries);
+    document.querySelector('[data-export-inquiries]')?.addEventListener('click', () => {
+      const rows = read(INQUIRIES_KEY, []).map((item) => {
+        const fields = item.fields || {};
+        return [item.id, item.createdAt, item.type || ((item.items || []).length ? 'quote' : 'message'), item.status || 'pending', item.customer || '', item.email || '', item.phone || fields.phone || '', item.company || fields.company || '', (item.items || []).map((product) => `${product.title} x ${Number(product.qty) || 1}`).join(' | '), item.message || fields.message || '', item.note || ''];
+      });
+      const csv = [['Reference', 'Created', 'Type', 'Status', 'Customer', 'Email', 'Phone', 'Company', 'Products', 'Message', 'Internal note'], ...rows]
+        .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+      link.download = `lumosy-inquiries-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+
+    usersBody.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-toggle-user]');
       if (!button) return;
       const list = users();
       const user = list.find((item) => item.id === button.dataset.toggleUser);
       if (!user) return;
+      const previousStatus = user.status;
       user.status = user.status === 'active' ? 'disabled' : 'active';
-      write(USERS_KEY, list);
+      if (!await updateUser(user)) {
+        user.status = previousStatus;
+        return setNotice(copy.syncFailed, 'error');
+      }
+      await audit('Account status updated', user.role === 'admin' ? 'Administrator account' : 'Customer account', user.status);
       redrawUsers();
+      redrawAudit();
       setNotice(copy.userUpdated);
     });
 
@@ -480,7 +613,7 @@
       if (!product) return;
       if (edit) {
         refreshCategorySelect(product.category);
-        for (const field of ['id', 'title', 'titleZh', 'category', 'image', 'status']) {
+        for (const field of ['id', 'title', 'titleZh', 'category', 'image', 'status', 'description', 'model', 'material', 'finish', 'dimensions']) {
           if (productForm.elements[field]) productForm.elements[field].value = product[field] || '';
         }
         if (productForm.elements.homepage) productForm.elements.homepage.checked = Boolean(product.homepage);
@@ -495,13 +628,17 @@
           return setNotice(copy.syncFailed, 'error');
         }
         write(PRODUCTS_KEY, products);
+        await audit('Product status updated', product.title, product.status);
         redrawProducts();
+        redrawAudit();
       }
       if (remove && confirm(copy.confirmDelete)) {
         const nextProducts = products.filter((item) => item.id !== product.id);
         if (!await syncManagedProducts(nextProducts)) return setNotice(copy.syncFailed, 'error');
         write(PRODUCTS_KEY, nextProducts);
+        await audit('Product deleted', product.title, product.category || '');
         redrawProducts();
+        redrawAudit();
         setNotice(copy.productRemoved);
       }
     });
@@ -513,42 +650,55 @@
       const id = String(data.get('id') || '').trim();
       const product = id ? products.find((item) => item.id === id) : null;
       const title = String(data.get('title') || '').trim();
-      const record = product || {
-        id: makeId('product'), source: 'custom', url: `/products/#${Date.now()}`, createdAt: new Date().toISOString()
-      };
+      const record = product || { id: makeId('product'), source: 'custom', createdAt: new Date().toISOString() };
       record.title = title;
       record.titleZh = String(data.get('titleZh') || '').trim();
       record.category = String(data.get('category') || '').trim();
       const categoryOption = productForm.elements.category.selectedOptions?.[0];
       record.categoryZh = categoryOption?.dataset.zh || '';
       record.categorySlug = categoryOption?.dataset.slug || '';
+      record.url = `/product/custom/?id=${encodeURIComponent(record.id)}`;
       record.image = String(data.get('image') || '').trim() || '/wp-content/uploads/2026/10/logo.png';
+      record.description = String(data.get('description') || '').trim();
+      record.model = String(data.get('model') || '').trim();
+      record.material = String(data.get('material') || '').trim();
+      record.finish = String(data.get('finish') || '').trim();
+      record.dimensions = String(data.get('dimensions') || '').trim();
       record.status = String(data.get('status') || 'active');
       record.homepage = data.get('homepage') === 'on';
       record.updatedAt = new Date().toISOString();
       if (!product) products.unshift(record);
       if (!await syncManagedProducts(products)) return setNotice(copy.syncFailed, 'error');
       write(PRODUCTS_KEY, products);
+      await audit(product ? 'Product updated' : 'Product created', record.title, record.category || '');
       productForm.reset();
       productForm.elements.id.value = '';
       setProductImage('');
       redrawProducts();
+      redrawAudit();
       setNotice(copy.productSaved);
     });
 
     inquiriesBody.addEventListener('change', async (event) => {
       const select = event.target.closest('[data-inquiry-status]');
-      if (!select) return;
+      const note = event.target.closest('[data-inquiry-note]');
+      if (!select && !note) return;
       const inquiries = read(INQUIRIES_KEY, []);
-      const inquiry = inquiries.find((item) => item.id === select.dataset.inquiryStatus);
+      const inquiryId = select?.dataset.inquiryStatus || note?.dataset.inquiryNote;
+      const inquiry = inquiries.find((item) => item.id === inquiryId);
       if (!inquiry) return;
-      inquiry.status = select.value;
+      const previousStatus = inquiry.status;
+      const previousNote = inquiry.note || '';
+      if (select) inquiry.status = select.value;
+      if (note) inquiry.note = note.value.trim();
       inquiry.updatedAt = new Date().toISOString();
       if (!await syncInquiries(inquiries)) {
         await ensureInquiries();
         redrawInquiries();
         return setNotice(copy.syncFailed, 'error');
       }
+      await audit(select ? 'Inquiry status updated' : 'Inquiry note updated', inquiry.id, select ? `${previousStatus || 'pending'} → ${inquiry.status}` : `${previousNote ? 'Updated' : 'Added'} internal note`);
+      redrawAudit();
       setNotice(copy.inquiryUpdated);
     });
 
@@ -558,7 +708,9 @@
       if (!confirm(isZh ? '确定删除这条询价吗？' : 'Delete this inquiry?')) return;
       const inquiries = read(INQUIRIES_KEY, []).filter((item) => item.id !== button.dataset.deleteInquiry);
       if (!await syncInquiries(inquiries)) return setNotice(copy.syncFailed, 'error');
+      await audit('Inquiry deleted', button.dataset.deleteInquiry);
       redrawInquiries();
+      redrawAudit();
       setNotice(isZh ? '询价已删除。' : 'Inquiry deleted.');
     });
 
@@ -575,6 +727,8 @@
       if (!await syncManagedCategories(categories)) return setNotice(copy.syncFailed, 'error');
       categoryForm.reset();
       redrawCategories();
+      await audit('Category created', name, slug);
+      redrawAudit();
       setNotice(isZh ? '分类已保存。' : 'Category saved.');
     });
 
@@ -587,7 +741,9 @@
       if (!target || products.some((product) => product.categorySlug === target.slug)) return setNotice(isZh ? '该分类下仍有产品，不能删除。' : 'Move or delete products in this category first.', 'error');
       const next = categories.filter((category) => category.id !== target.id);
       if (!await syncManagedCategories(next)) return setNotice(copy.syncFailed, 'error');
+      await audit('Category deleted', target.name, target.slug);
       redrawCategories();
+      redrawAudit();
     });
 
     document.querySelector('[data-admin-form]')?.addEventListener('submit', async (event) => {
@@ -595,22 +751,28 @@
       const form = event.currentTarget;
       const email = normalizeEmail(form.elements.email.value);
       const password = form.elements.password.value;
+      await ensureUsers();
       const all = users();
       if (all.some((user) => user.email === email)) return setNotice(copy.exists, 'error');
       if (password.length < 8) return setNotice(copy.weak, 'error');
-      all.push({
+      const newAdmin = {
         id: makeId('admin'), name: form.elements.name.value.trim(), email, phone: '', company: 'LUMOSY',
         passwordHash: await hashPassword(password), role: 'admin', status: 'active', createdAt: new Date().toISOString()
-      });
-      write(USERS_KEY, all);
+      };
+      const saved = await appendUser(newAdmin);
+      if (saved === 'exists') return setNotice(copy.exists, 'error');
+      if (!saved) return setNotice(copy.syncFailed, 'error');
+      await audit('Administrator created', 'Administrator account');
       form.reset();
       redrawUsers();
+      redrawAudit();
       setNotice(copy.adminAdded);
     });
   }
 
   async function start() {
     await ensureAdministrator();
+    await ensureUsers();
     document.querySelectorAll('[data-logout]').forEach((button) => button.addEventListener('click', logout));
     document.querySelector('[data-login-form]')?.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -674,7 +836,7 @@
         handleRegistration(event.currentTarget);
       });
     }
-    await Promise.all([ensureProducts(), ensureCategories(), ensureInquiries()]);
+    await Promise.all([ensureProducts(), ensureCategories(), ensureInquiries(), ensureAuditLogs()]);
     if (page === 'account') {
       const user = requireUser();
       if (user) renderAccount(user);

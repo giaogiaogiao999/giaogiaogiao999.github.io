@@ -45,6 +45,70 @@
   }
   async function getCategories() { return getList('categories'); }
   async function saveCategories(categories) { return saveList('categories', categories); }
+  async function getUsers() { return getList('users'); }
+  async function saveUsers(users) { return saveList('users', users); }
+  async function appendUser(user) {
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const current = await getUsers();
+        if (current.some((item) => String(item.email).toLowerCase() === String(user.email).toLowerCase())) {
+          const error = new Error('ACCOUNT_EXISTS');
+          error.code = 'ACCOUNT_EXISTS';
+          throw error;
+        }
+        const merged = [...current, user];
+        await saveUsers(merged);
+        const verified = await getUsers();
+        if (verified.some((item) => item.id === user.id)) return verified;
+        throw new Error('Account was not present after saving.');
+      } catch (error) {
+        if (error?.code === 'ACCOUNT_EXISTS') throw error;
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+    throw lastError || new Error('Account could not be saved.');
+  }
+  async function updateUser(user) {
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const current = await getUsers();
+        const index = current.findIndex((item) => item.id === user.id);
+        if (index < 0) throw new Error('Account not found.');
+        current[index] = user;
+        await saveUsers(current);
+        const verified = await getUsers();
+        const saved = verified.find((item) => item.id === user.id);
+        if (saved && saved.updatedAt === user.updatedAt) return verified;
+        throw new Error('Account update was not verified.');
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+    throw lastError || new Error('Account could not be updated.');
+  }
+  async function getAuditLogs() { return getList('auditLogs'); }
+  async function saveAuditLogs(auditLogs) { return saveList('auditLogs', auditLogs); }
+  async function appendAuditLog(entry) {
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const current = await getAuditLogs();
+        const next = [entry, ...current.filter((item) => item.id !== entry.id)].slice(0, 500);
+        await saveAuditLogs(next);
+        const verified = await getAuditLogs();
+        if (verified.some((item) => item.id === entry.id)) return verified;
+        throw new Error('Operation log was not present after saving.');
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+    throw lastError || new Error('Operation log could not be saved.');
+  }
 
   async function uploadImage(file) {
     const source = await new Promise((resolve, reject) => {
@@ -76,5 +140,9 @@
     return result;
   }
 
-  window.LumosyCloud = { enabled, getProducts, saveProducts, getInquiries, saveInquiries, appendInquiry, getCategories, saveCategories, uploadImage };
+  window.LumosyCloud = {
+    enabled, getProducts, saveProducts, getInquiries, saveInquiries, appendInquiry,
+    getCategories, saveCategories, getUsers, saveUsers, appendUser, updateUser, getAuditLogs, saveAuditLogs,
+    appendAuditLog, uploadImage
+  };
 })();

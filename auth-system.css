@@ -43,11 +43,14 @@ button, input, select { font: inherit; }
 .auth-field { display: grid; gap: 7px; }
 .auth-field label { color: #334659; font-size: 14px; font-weight: 700; }
 .auth-field input,
-.auth-field select {
+.auth-field select,
+.auth-field textarea {
   width: 100%; height: 48px; padding: 0 14px; border: 1px solid #cdd9e2; border-radius: 3px; color: var(--auth-ink); background: #fff;
 }
+.auth-field textarea { height: auto; min-height: 100px; padding: 12px 14px; resize: vertical; line-height: 1.5; }
 .auth-field input:focus,
-.auth-field select:focus { border-color: var(--auth-blue); outline: 3px solid rgba(7,150,210,.14); }
+.auth-field select:focus,
+.auth-field textarea:focus { border-color: var(--auth-blue); outline: 3px solid rgba(7,150,210,.14); }
 .auth-email-control { position: relative; }
 .auth-email-control [data-qq-suffix] { display: none; position: absolute; top: 50%; right: 14px; color: #53697a; transform: translateY(-50%); pointer-events: none; }
 .is-qq-registration .auth-email-control input { padding-right: 76px; }
@@ -215,3 +218,12 @@ html:not([data-auth-ready='true']) .portal-main { pointer-events: none; opacity:
 .inquiry-details summary { width: max-content; color: #078cca; font-size: 12px; font-weight: 700; cursor: pointer; }
 .inquiry-details p { max-width: 440px; margin: 8px 0 0; padding: 10px 12px; border-radius: 6px; background: #f3f7f9; color: #435f72; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
 .inquiry-delete { display: block; margin-top: 9px; }
+.inquiry-toolbar { display: grid; grid-template-columns: minmax(260px,1fr) 170px 170px auto; gap: 12px; align-items: end; margin-bottom: 12px; }
+.inquiry-toolbar label { display: grid; gap: 6px; color: #53697a; font-size: 12px; font-weight: 700; }
+.inquiry-toolbar input,.inquiry-toolbar select { height: 42px; padding: 0 11px; border: 1px solid #cbd8e1; border-radius: 3px; background: #fff; }
+.inquiry-export { height: 42px; margin: 0; color: #fff; border-color: var(--auth-blue); background: var(--auth-blue); }
+.table-summary { margin: 4px 0 12px; color: var(--auth-muted); font-size: 12px; }
+.admin-table-scroll { overflow-x: auto; }
+.inquiry-note { width: 210px; display: block; margin-top: 9px; padding: 8px; border: 1px solid #ccd8e1; border-radius: 3px; color: #30485b; background: #fff; resize: vertical; font: inherit; font-size: 12px; }
+@media (max-width: 1100px) { .inquiry-toolbar { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .inquiry-toolbar { grid-template-columns: 1fr; } .inquiry-note { width: 180px; } }
