@@ -9,13 +9,13 @@
     sent: '即将打开邮件应用，请发送邮件完成询价。', searchEmpty: '没有找到匹配的产品。',
     emailSubject: '网站产品询价', requiredEmail: '请输入有效的邮箱地址。',
     favoriteAdded: '已收藏产品', favoriteRemoved: '已取消收藏', loginFavorite: '登录后可以收藏产品',
-    addQuote: '加入询价', rating: '暂无评分'
+    addQuote: '加入询价', rating: '暂无评分', messageSent: '留言提交成功，我们会尽快联系您。', messageFailed: '留言提交失败，请检查网络后重试。'
   } : {
     added: 'Added to quote list', removed: 'Removed', empty: 'Your quote basket is empty.',
     sent: 'Your email app will open. Send the prepared message to complete the inquiry.', searchEmpty: 'No matching products found.',
     emailSubject: 'Website product inquiry', requiredEmail: 'Please enter a valid email address.',
     favoriteAdded: 'Product saved to favorites', favoriteRemoved: 'Removed from favorites', loginFavorite: 'Sign in to save favorites',
-    addQuote: 'Add to Quote', rating: 'Rated 0 out of 5'
+    addQuote: 'Add to Quote', rating: 'Rated 0 out of 5', messageSent: 'Message submitted. We will contact you soon.', messageFailed: 'Message submission failed. Check your connection and try again.'
   };
 
   const QUOTE_KEY = 'lumosy_static_quote_v1';
@@ -24,6 +24,23 @@
   const INQUIRIES_KEY = 'lumosy_inquiries_v1';
   const PRODUCTS_KEY = 'lumosy_products_v1';
   const CATEGORIES_KEY = 'lumosy_categories_v1';
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[character]));
+  const safeInternalUrl = (value, fallback = '/products/') => {
+    try {
+      const url = new URL(String(value || fallback), location.origin);
+      return url.origin === location.origin ? `${url.pathname}${url.search}${url.hash}` : fallback;
+    } catch { return fallback; }
+  };
+  const safeImageUrl = (value) => {
+    const source = String(value || '/wp-content/uploads/2026/10/logo.png').trim();
+    if (/^data:image\/(?:jpeg|png|webp|gif);base64,/i.test(source)) return source;
+    try {
+      const url = new URL(source, location.origin);
+      return ['http:', 'https:'].includes(url.protocol) ? url.href : '/wp-content/uploads/2026/10/logo.png';
+    } catch { return '/wp-content/uploads/2026/10/logo.png'; }
+  };
   const categorySlugByName = {
     'Aluminum Carpet Transition Strip': 'aluminum-carpet-transition-strip',
     'Aluminum Skirting Profile': 'aluminum-skirting-profile',
@@ -426,7 +443,9 @@
     for (const item of items) {
       const row = document.createElement('div');
       row.className = 'cxb-b2b-quote-request-table-row static-quote-row';
-      row.innerHTML = `<div class="cxb-b2b-quote-request-table-cell product-picture">${item.image ? `<img src="${item.image}" alt="">` : ''}</div><div class="cxb-b2b-quote-request-table-cell product-name"><a href="${item.url || '#'}">${item.title}</a></div><div class="cxb-b2b-quote-request-table-cell product-quantity"><input type="number" min="1" value="${Number(item.qty) || 1}" aria-label="Quantity"></div><div class="cxb-b2b-quote-request-table-cell product-actions"><button type="button" class="static-quote-remove" aria-label="Remove">×</button></div>`;
+      const image = item.image ? `<img src="${escapeHtml(safeImageUrl(item.image))}" alt="">` : '';
+      const url = escapeHtml(safeInternalUrl(item.url, '#'));
+      row.innerHTML = `<div class="cxb-b2b-quote-request-table-cell product-picture">${image}</div><div class="cxb-b2b-quote-request-table-cell product-name"><a href="${url}">${escapeHtml(item.title)}</a></div><div class="cxb-b2b-quote-request-table-cell product-quantity"><input type="number" min="1" value="${Math.max(1, Number(item.qty) || 1)}" aria-label="Quantity"></div><div class="cxb-b2b-quote-request-table-cell product-actions"><button type="button" class="static-quote-remove" aria-label="Remove">×</button></div>`;
       row.querySelector('input').addEventListener('change', (event) => {
         item.qty = Math.max(1, Number(event.target.value) || 1);
         saveQuote(items);
@@ -441,8 +460,9 @@
   }
 
   async function formMailto(form) {
-    const items = readQuote();
-    if (!items.length) {
+    const isQuoteForm = Boolean(form.closest('#cxb-b2b-quote-request-page'));
+    const items = isQuoteForm ? readQuote() : [];
+    if (isQuoteForm && !items.length) {
       toast(isZh ? '请先添加需要询价的产品。' : 'Please add at least one product before submitting.');
       renderQuotePage();
       return;
@@ -469,14 +489,25 @@
     const session = readStore(SESSION_KEY, null);
     const fields = {};
     for (const [key, value] of data.entries()) {
-      if (!(value instanceof File) && String(value).trim() && !key.includes('nonce') && !key.startsWith('_')) fields[key] = String(value).trim();
+      if (!(value instanceof File) && String(value).trim() && !key.includes('nonce') && !key.startsWith('_') && !key.startsWith('cxb_form_')) fields[key] = String(value).trim();
     }
+    try {
+      const config = JSON.parse(form.dataset.fieldsConfig || '[]');
+      config.forEach((field) => {
+        const value = String(data.get(field.key) || '').trim();
+        if (field.map && value) fields[field.map] = value;
+      });
+    } catch {}
+    fields.email ||= String(form.querySelector('input[type="email"]')?.value || '').trim();
+    fields.phone ||= String(form.querySelector('input[type="tel"]')?.value || '').trim();
+    fields.message ||= String(form.querySelector('textarea')?.value || '').trim();
     let inquiries = readStore(INQUIRIES_KEY, []);
     if (window.LumosyCloud?.enabled) {
       try { inquiries = await window.LumosyCloud.getInquiries(); } catch (error) { console.warn('Could not refresh inquiries before submit.', error); }
     }
     const inquiry = {
       id: `INQ-${Date.now().toString().slice(-8)}`,
+      type: isQuoteForm ? 'quote' : 'message',
       userId: session?.userId || null,
       customer: session?.name || fields.company_name || fields.name || fields.your_name || fields.full_name || 'Guest',
       email: session?.email || fields.email || fields.your_email || '',
@@ -497,22 +528,26 @@
         : inquiries;
       if (!window.LumosyCloud.appendInquiry) await window.LumosyCloud.saveInquiries(inquiries);
       saveStore(INQUIRIES_KEY, inquiries);
-      saveQuote([]);
+      if (isQuoteForm) saveQuote([]);
       form.reset();
       const workspace = document.querySelector('.quote-workspace');
       const success = document.querySelector('[data-quote-success]');
-      if (workspace) workspace.hidden = true;
-      if (success) {
+      if (isQuoteForm && workspace) workspace.hidden = true;
+      if (isQuoteForm && success) {
         success.hidden = false;
         const reference = success.querySelector('[data-quote-reference]');
         const refLabel = document.getElementById('cxb-b2b-quote-request-page')?.quoteText?.ref || 'Reference';
         if (reference) reference.textContent = `${refLabel}: ${inquiry.id}`;
         success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        toast(copy.messageSent);
+        if (submit) submit.disabled = false;
+        if (submitLabel && originalLabel) submitLabel.textContent = originalLabel;
       }
       updateQuoteBadges();
     } catch (error) {
       console.error('Inquiry sync failed.', error);
-      toast(isZh ? '询价提交失败，请检查网络后重试。' : 'Inquiry submission failed. Check your connection and try again.');
+      toast(isQuoteForm ? (isZh ? '询价提交失败，请检查网络后重试。' : 'Inquiry submission failed. Check your connection and try again.') : copy.messageFailed);
       if (submit) submit.disabled = false;
       if (submitLabel && originalLabel) submitLabel.textContent = originalLabel;
     }
@@ -626,14 +661,20 @@
     products.filter((product) => product.source === 'custom' && product.status !== 'inactive' && belongsToCurrentCategory(product) && !known.has(product.id)).forEach((product) => {
       const title = isZh && product.titleZh ? product.titleZh : product.title;
       const category = isZh && product.categoryZh ? product.categoryZh : product.category;
+      const safeTitle = escapeHtml(title);
+      const safeCategory = escapeHtml(category);
+      const safeProductUrl = escapeHtml(safeInternalUrl(product.url));
+      const safeImage = escapeHtml(safeImageUrl(product.image));
+      const safeProductId = escapeHtml(product.id);
+      const safeCategorySlug = encodeURIComponent(productCategorySlug(product));
       const isCategoryGrid = grid.classList.contains('cxb-b2b-products-grid');
       const card = document.createElement(isCategoryGrid ? 'div' : 'article');
       card.className = isCategoryGrid ? 'cxb-b2b-product-card content-product-card cxb-b2b-product-card-top-image' : 'reference-store-card';
       card.dataset.managedProductId = product.id;
-      card.dataset.productLink = product.url;
+      card.dataset.productLink = safeInternalUrl(product.url);
       card.innerHTML = isCategoryGrid
-        ? `<div class="cxb-b2b-product-thumbnail"><a href="${product.url}"><div class="cxb-b2b-product-image-wrapper"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></div></a></div><div class="cxb-b2b-product-info"><h6 class="cxb-b2b-product-title"><a href="${product.url}">${title}</a></h6><div class="cxb-b2b-product-excerpt"><p>${title} — ${category}</p></div><div class="cxb-b2b-product-meta"><span class="cxb-b2b-product-category"><strong>${isZh ? '类别：' : 'Categories:'}</strong> <a href="${isZh ? '/zh' : ''}/product-category/${productCategorySlug(product)}/">${category}</a></span></div><div class="cxb-b2b-product-actions"><button type="button" class="cxb-b2b-add-to-quote-button" data-product-id="${product.id}"><span class="cxb-b2b-btn-label cxb-b2b-btn-label-default">${copy.addQuote}</span></button></div></div>`
-        : `<a class="reference-store-card__image" href="${product.url}"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></a><h2><a href="${product.url}">${title}</a></h2><p>${category}</p><span>${copy.rating}</span><a class="reference-store-card__button" href="${product.url}#inquiry">${copy.addQuote}</a>`;
+        ? `<div class="cxb-b2b-product-thumbnail"><a href="${safeProductUrl}"><div class="cxb-b2b-product-image-wrapper"><img loading="lazy" src="${safeImage}" alt="${safeTitle}"></div></a></div><div class="cxb-b2b-product-info"><h6 class="cxb-b2b-product-title"><a href="${safeProductUrl}">${safeTitle}</a></h6><div class="cxb-b2b-product-excerpt"><p>${safeTitle} — ${safeCategory}</p></div><div class="cxb-b2b-product-meta"><span class="cxb-b2b-product-category"><strong>${isZh ? '类别：' : 'Categories:'}</strong> <a href="${isZh ? '/zh' : ''}/product-category/${safeCategorySlug}/">${safeCategory}</a></span></div><div class="cxb-b2b-product-actions"><button type="button" class="cxb-b2b-add-to-quote-button" data-product-id="${safeProductId}"><span class="cxb-b2b-btn-label cxb-b2b-btn-label-default">${copy.addQuote}</span></button></div></div>`
+        : `<a class="reference-store-card__image" href="${safeProductUrl}"><img loading="lazy" src="${safeImage}" alt="${safeTitle}"></a><h2><a href="${safeProductUrl}">${safeTitle}</a></h2><p>${safeCategory}</p><span>${copy.rating}</span><a class="reference-store-card__button" href="${safeProductUrl}#inquiry">${copy.addQuote}</a>`;
       grid.appendChild(card);
     });
     const activeProducts = products.filter((product) => product.status !== 'inactive');
@@ -657,7 +698,7 @@
       link.dataset.cloudCategory = category.slug;
       link.href = `${isZh ? '/zh' : ''}/products/?category=${encodeURIComponent(category.slug)}`;
       const count = activeProducts.filter((product) => productCategorySlug(product) === category.slug).length;
-      link.innerHTML = `<span>${isZh && category.zh ? category.zh : category.name}</span><span class="category-count">${count}</span>`;
+      link.innerHTML = `<span>${escapeHtml(isZh && category.zh ? category.zh : category.name)}</span><span class="category-count">${count}</span>`;
       item.appendChild(link);
       sidebarList.appendChild(item);
     });
@@ -670,7 +711,7 @@
       card.className = 'reference-category-card';
       card.dataset.cloudCategory = category.slug;
       const href = `${isZh ? '/zh' : ''}/products/?category=${encodeURIComponent(category.slug)}`;
-      card.innerHTML = `<a class="reference-category-card__image" href="${href}"><img loading="lazy" src="${first?.image || '/wp-content/uploads/2026/10/logo.png'}" alt=""></a><h3><a href="${href}">${isZh && category.zh ? category.zh : category.name}</a></h3><span>${activeProducts.filter((product) => productCategorySlug(product) === category.slug).length} ${isZh ? '个产品' : 'Products'}</span>`;
+      card.innerHTML = `<a class="reference-category-card__image" href="${escapeHtml(href)}"><img loading="lazy" src="${escapeHtml(safeImageUrl(first?.image))}" alt=""></a><h3><a href="${escapeHtml(href)}">${escapeHtml(isZh && category.zh ? category.zh : category.name)}</a></h3><span>${activeProducts.filter((product) => productCategorySlug(product) === category.slug).length} ${isZh ? '个产品' : 'Products'}</span>`;
       categoryGrid.appendChild(card);
     });
 
@@ -678,10 +719,12 @@
     if (homeGrid) products.filter((product) => product.source === 'custom' && product.status !== 'inactive' && product.homepage).forEach((product) => {
       if (homeGrid.querySelector(`[data-managed-product-id="${CSS.escape(product.id)}"]`)) return;
       const title = isZh && product.titleZh ? product.titleZh : product.title;
+      const safeTitle = escapeHtml(title);
+      const safeProductUrl = escapeHtml(safeInternalUrl(product.url));
       const card = document.createElement('article');
       card.className = 'reference-product-card';
       card.dataset.managedProductId = product.id;
-      card.innerHTML = `<a class="reference-product-card__image" href="${product.url}"><img loading="lazy" src="${product.image || '/wp-content/uploads/2026/10/logo.png'}" alt="${title.replaceAll('"', '&quot;')}"></a><h3><a href="${product.url}">${title}</a></h3><a class="reference-button" href="${product.url}">${isZh ? '了解更多' : 'More Info'}</a>`;
+      card.innerHTML = `<a class="reference-product-card__image" href="${safeProductUrl}"><img loading="lazy" src="${escapeHtml(safeImageUrl(product.image))}" alt="${safeTitle}"></a><h3><a href="${safeProductUrl}">${safeTitle}</a></h3><a class="reference-button" href="${safeProductUrl}">${isZh ? '了解更多' : 'More Info'}</a>`;
       homeGrid.appendChild(card);
     });
   }

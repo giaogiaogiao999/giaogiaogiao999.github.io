@@ -288,8 +288,11 @@
       const favorites = read(FAVORITES_KEY, []).filter((item) => item.userId === user.id);
       if (quoteList) quoteList.innerHTML = quote.length ? quote.map((item) => `
         <li><img src="${escapeHtml(item.image || '/wp-content/uploads/2026/10/logo.png')}" alt=""><span><strong>${escapeHtml(item.title)}</strong><small>${isZh ? '数量' : 'Quantity'}: ${Number(item.qty) || 1}</small></span><button type="button" data-remove-quote="${escapeHtml(String(item.id))}" aria-label="${copy.remove}">×</button></li>`).join('') : `<li class="is-empty">${copy.noQuote}</li>`;
-      if (inquiryList) inquiryList.innerHTML = inquiries.length ? inquiries.map((item) => `
-        <tr><td><strong>${escapeHtml(item.id)}</strong></td><td>${new Date(item.createdAt).toLocaleDateString()}</td><td>${Number(item.items?.length || 0)}<small>${escapeHtml((item.items || []).map((product) => product.title).join('、'))}</small></td><td><span class="status-badge status-${escapeHtml(item.status || 'pending')}">${escapeHtml(statusLabel(item.status))}</span></td></tr>`).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
+      if (inquiryList) inquiryList.innerHTML = inquiries.length ? inquiries.map((item) => {
+        const items = item.items || [];
+        const summary = item.type === 'message' || !items.length ? (isZh ? '留言' : 'Message') : String(items.length);
+        return `<tr><td><strong>${escapeHtml(item.id)}</strong></td><td>${new Date(item.createdAt).toLocaleDateString()}</td><td>${summary}<small>${escapeHtml(items.map((product) => product.title).join('、'))}</small></td><td><span class="status-badge status-${escapeHtml(item.status || 'pending')}">${escapeHtml(statusLabel(item.status))}</span></td></tr>`;
+      }).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
       if (favoriteList) favoriteList.innerHTML = favorites.length ? favorites.map(({ product }) => `
         <li><img src="${escapeHtml(product.image || '/wp-content/uploads/2026/10/logo.png')}" alt=""><a href="${escapeHtml(product.url || '/products/')}">${escapeHtml(product.title)}</a><button type="button" data-remove-favorite="${escapeHtml(String(product.id))}" aria-label="${copy.remove}">×</button></li>`).join('') : `<li class="is-empty">${copy.noFavorite}</li>`;
       const quoteStat = document.querySelector('[data-stat-quote]');
@@ -435,10 +438,11 @@
         const country = item.country || fields.country || '';
         const message = item.message || fields.message || '';
         const products = (item.items || []).map((product) => `${product.title} × ${Number(product.qty) || 1}`).join('；');
+        const isMessage = item.type === 'message' || !(item.items || []).length;
         return `<tr class="inquiry-row">
           <td><strong>${escapeHtml(item.id)}</strong><small>${new Date(item.createdAt).toLocaleString()}</small></td>
           <td><strong>${escapeHtml(item.customer || 'Guest')}</strong><small>${escapeHtml(item.email || '')}</small>${phone ? `<small>${escapeHtml(phone)}</small>` : ''}${country ? `<small>${escapeHtml(country)}</small>` : ''}</td>
-          <td><strong>${Number(item.items?.length || 0)} ${isZh ? '件产品' : 'products'}</strong><small>${escapeHtml(products)}</small>${message ? `<details class="inquiry-details"><summary>${isZh ? '查看需求说明' : 'View requirements'}</summary><p>${escapeHtml(message)}</p></details>` : ''}</td>
+          <td><strong>${isMessage ? (isZh ? '普通留言' : 'General message') : `${Number(item.items?.length || 0)} ${isZh ? '件产品' : 'products'}`}</strong><small>${escapeHtml(products)}</small>${message ? `<details class="inquiry-details"><summary>${isZh ? '查看需求说明' : 'View requirements'}</summary><p>${escapeHtml(message)}</p></details>` : ''}</td>
           <td><select class="table-select" data-inquiry-status="${escapeHtml(item.id)}"><option value="pending" ${item.status === 'pending' ? 'selected' : ''}>${copy.pending}</option><option value="processing" ${item.status === 'processing' ? 'selected' : ''}>${copy.processing}</option><option value="completed" ${item.status === 'completed' ? 'selected' : ''}>${copy.completed}</option></select><button class="table-action is-danger inquiry-delete" type="button" data-delete-inquiry="${escapeHtml(item.id)}">${copy.remove}</button></td>
         </tr>`;
       }).join('') : `<tr><td colspan="4">${copy.noInquiry}</td></tr>`;
